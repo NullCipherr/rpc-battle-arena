@@ -1,12 +1,15 @@
 from xmlrpc.server import SimpleXMLRPCServer
 from xmlrpc.server import SimpleXMLRPCRequestHandler
 import random
+import os
 
 class GameServer:
     def __init__(self):
         self.players = {}  # Armazena informações dos jogadores
         self.matches = {}  # Armazena partidas em andamento
         self.choices = {}  # Armazena as escolhas dos jogadores
+        self.scores = {}   # Armazena o placar das partidas
+        self.max_rounds = 5  # Número máximo de rodadas
         
     def register_player(self, player_id, port):
         """Registra um novo jogador se o ID não estiver em uso"""
@@ -29,11 +32,18 @@ class GameServer:
         for match_id, players in self.matches.items():
             if len(players) == 1:
                 self.matches[match_id].append(player_id)
+                # Inicializa o placar para a partida
+                if match_id not in self.scores:
+                    self.scores[match_id] = {
+                        players[0]: 0,  # Jogador 1
+                        player_id: 0     # Jogador 2
+                    }
                 return True, match_id
                 
         # Cria nova partida se não houver disponível
         match_id = len(self.matches)
         self.matches[match_id] = [player_id]
+        self.scores[match_id] = {player_id: 0}
         return True, match_id
     
     def make_move(self, player_id, match_id, choice):
@@ -55,7 +65,7 @@ class GameServer:
         return True, "Jogada registrada, aguardando oponente"
     
     def resolve_match(self, match_id):
-        """Determina o vencedor da partida"""
+        """Determina o vencedor da rodada e atualiza o placar"""
         players = self.matches[match_id]
         choice1 = self.choices[players[0]]
         choice2 = self.choices[players[1]]
@@ -66,23 +76,54 @@ class GameServer:
             "tesoura": "papel"
         }
         
+        # Determina o vencedor da rodada
         if choice1 == choice2:
             resultado = "Empate!"
         elif combinacoes_vencedoras[choice1] == choice2:
-            resultado = f"Jogador {players[0]} venceu!"
+            resultado = f"Jogador {players[0]} venceu a rodada!"
+            self.scores[match_id][players[0]] += 1
         else:
-            resultado = f"Jogador {players[1]} venceu!"
+            resultado = f"Jogador {players[1]} venceu a rodada!"
+            self.scores[match_id][players[1]] += 1
             
-        # Limpa os dados da partida
+        # Verifica se alguém ganhou o jogo
+        for player, score in self.scores[match_id].items():
+            if score >= (self.max_rounds // 2 + 1):
+                resultado = f"Jogador {player} venceu o jogo!"
+                # Limpa os dados da partida
+                del self.scores[match_id]
+                del self.matches[match_id]
+                for p in players:
+                    if p in self.choices:
+                        del self.choices[p]
+                return True, resultado
+        
+        # Limpa apenas as escolhas para a próxima rodada
         for player in players:
-            del self.choices[player]
-        del self.matches[match_id]
+            if player in self.choices:
+                del self.choices[player]
         
         return True, resultado
 
+    def get_match_status(self, player_id, match_id):
+        """Retorna o status atual da partida"""
+        if match_id not in self.matches or match_id not in self.scores:
+            return False, "Partida não encontrada"
+        
+        return True, {
+            "scores": self.scores[match_id],
+            "current_round": sum(self.scores[match_id].values()) + 1,
+            "max_rounds": self.max_rounds
+        }
+
 def main():
+    # Se estiver em modo debug, usa a porta da variável de ambiente
+    if 'PORTA' in os.environ:
+        porta = int(os.environ['PORTA'])
+    else:
+        porta = int(input("Digite a porta do servidor: "))
+    
     # Cria o servidor
-    porta = int(input("Digite a porta do servidor: "))
     servidor = SimpleXMLRPCServer(("localhost", porta), 
                                requestHandler=SimpleXMLRPCRequestHandler,
                                allow_none=True)

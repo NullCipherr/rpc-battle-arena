@@ -1,4 +1,6 @@
 import pygame
+import argparse
+import socket
 import xmlrpc.client
 import time
 import sys
@@ -28,11 +30,18 @@ class ClienteJogoGUI:
         self.CINZA = (128, 128, 128)
         self.VERMELHO = (255, 0, 0)
         self.VERDE = (0, 255, 0)
+        self.AZUL = (0, 0, 255)
         
         # Estados do jogo
         self.estado = "menu"  # menu, lobby, jogando, resultado
         self.tempo_espera = 0
         self.mensagem = ""
+        
+        # Placar
+        self.placar_jogador = 0
+        self.placar_oponente = 0
+        self.rodada_atual = 1
+        self.max_rodadas = 5
         
         # Conexão com servidor
         self.servidor = xmlrpc.client.ServerProxy(f'http://{servidor_ip}:{servidor_porta}')
@@ -45,6 +54,13 @@ class ClienteJogoGUI:
             "new_game": pygame.Rect(self.WIDTH//2 - 100, 200, 200, 50),
             "credits": pygame.Rect(self.WIDTH//2 - 100, 300, 200, 50),
             "quit": pygame.Rect(self.WIDTH//2 - 100, 400, 200, 50)
+        }
+        
+        # Botões do jogo
+        self.botoes_jogo = {
+            "pedra": pygame.Rect(100, self.HEIGHT - 100, 150, 50),
+            "papel": pygame.Rect(325, self.HEIGHT - 100, 150, 50),
+            "tesoura": pygame.Rect(550, self.HEIGHT - 100, 150, 50)
         }
 
     def desenhar_menu(self):
@@ -79,21 +95,29 @@ class ClienteJogoGUI:
     def desenhar_jogo(self):
         self.screen.fill(self.PRETO)
         
-        # Desenha as opções
-        opcoes = ["pedra", "papel", "tesoura"]
-        for i, opcao in enumerate(opcoes):
-            rect = pygame.Rect(150 + i*200, self.HEIGHT//2 - 25, 150, 50)
-            cor = self.VERDE if self.escolha_atual == opcao else self.CINZA
-            pygame.draw.rect(self.screen, cor, rect)
-            texto = self.font_media.render(opcao.title(), True, self.BRANCO)
-            texto_rect = texto.get_rect(center=rect.center)
-            self.screen.blit(texto, texto_rect)
+        # Placar
+        placar = self.font_grande.render(f"{self.placar_jogador} x {self.placar_oponente}", True, self.BRANCO)
+        placar_rect = placar.get_rect(center=(self.WIDTH//2, 50))
+        self.screen.blit(placar, placar_rect)
+        
+        # Rodada atual
+        rodada = self.font_media.render(f"Rodada {self.rodada_atual}", True, self.BRANCO)
+        rodada_rect = rodada.get_rect(center=(self.WIDTH//2, 100))
+        self.screen.blit(rodada, rodada_rect)
         
         # Mensagem
         if self.mensagem:
             msg = self.font_media.render(self.mensagem, True, self.BRANCO)
-            msg_rect = msg.get_rect(center=(self.WIDTH//2, 100))
+            msg_rect = msg.get_rect(center=(self.WIDTH//2, self.HEIGHT//2))
             self.screen.blit(msg, msg_rect)
+        
+        # Botões de jogada
+        for opcao, rect in self.botoes_jogo.items():
+            cor = self.VERDE if self.escolha_atual == opcao else self.AZUL
+            pygame.draw.rect(self.screen, cor, rect)
+            texto = self.font_media.render(opcao.title(), True, self.BRANCO)
+            texto_rect = texto.get_rect(center=rect.center)
+            self.screen.blit(texto, texto_rect)
 
     def procurar_partida(self):
         try:
@@ -101,9 +125,23 @@ class ClienteJogoGUI:
             if sucesso:
                 self.estado = "jogando"
                 self.mensagem = "Partida encontrada! Faça sua jogada."
+                self.placar_jogador = 0
+                self.placar_oponente = 0
+                self.rodada_atual = 1
         except:
             self.estado = "menu"
             self.mensagem = "Erro ao conectar ao servidor"
+
+    def verificar_fim_jogo(self):
+        if self.placar_jogador >= (self.max_rodadas // 2 + 1):
+            self.mensagem = "Você venceu o jogo!"
+            self.estado = "menu"
+            return True
+        elif self.placar_oponente >= (self.max_rodadas // 2 + 1):
+            self.mensagem = "Você perdeu o jogo!"
+            self.estado = "menu"
+            return True
+        return False
 
     def executar(self):
         clock = pygame.time.Clock()
@@ -128,17 +166,26 @@ class ClienteJogoGUI:
                                     sys.exit()
                     
                     elif self.estado == "jogando":
-                        opcoes = ["pedra", "papel", "tesoura"]
-                        for i, opcao in enumerate(opcoes):
-                            rect = pygame.Rect(150 + i*200, self.HEIGHT//2 - 25, 150, 50)
+                        for opcao, rect in self.botoes_jogo.items():
                             if rect.collidepoint(mouse_pos):
                                 self.escolha_atual = opcao
                                 try:
                                     sucesso, mensagem = self.servidor.make_move(
                                         self.player_id, self.match_id, opcao)
                                     self.mensagem = mensagem
-                                    if "venceu" in mensagem or "Empate" in mensagem:
-                                        self.estado = "menu"
+                                    
+                                    if "Você venceu" in mensagem:
+                                        self.placar_jogador += 1
+                                        self.rodada_atual += 1
+                                    elif "Você perdeu" in mensagem:
+                                        self.placar_oponente += 1
+                                        self.rodada_atual += 1
+                                    elif "Empate" in mensagem:
+                                        self.rodada_atual += 1
+                                    
+                                    if not self.verificar_fim_jogo():
+                                        self.escolha_atual = None
+                                        
                                 except:
                                     self.estado = "menu"
                                     self.mensagem = "Erro ao fazer jogada"
@@ -154,13 +201,26 @@ class ClienteJogoGUI:
             pygame.display.flip()
             clock.tick(60)
 
+
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--ip', default='localhost', help='IP do servidor')
+    parser.add_argument('--porta', type=int, default=5000, help='Porta do servidor')
+    args = parser.parse_args()
+    
+    # IP Local automatico para debug
+    ip_local = socket.gethostbyname(socket.gethostname())
+    print(f"\n[DEBUG] IP Local: {ip_local}")
+    print(f"[DEBUG] Conectando ao servidor: {args.ip}:{args.porta}")
+    
     # Configuração inicial
-    servidor_ip = input("Digite o IP do servidor (padrão: localhost): ") or "localhost"
-    servidor_porta = input("Digite a porta do servidor: ")
+    # servidor_ip = input("\nDigite o IP do servidor (padrão: localhost): ") or "localhost"
+    # servidor_porta = 5000
+    # print("[DEBUG] A porta do servidor é: ", servidor_porta)
+    # print("[DEBUG] O IP do servidor é: ", servidor_ip)
     
     # Inicia o cliente com interface gráfica
-    cliente = ClienteJogoGUI(servidor_ip, servidor_porta)
+    cliente = ClienteJogoGUI(args.ip, args.porta)
     cliente.executar()
 
 if __name__ == "__main__":
