@@ -105,11 +105,31 @@ class ClienteJogoGUI:
         rodada_rect = rodada.get_rect(center=(self.WIDTH//2, 100))
         self.screen.blit(rodada, rodada_rect)
         
+        # IDs dos jogadores
+        jogador_texto = self.font_pequena.render(f"Você: {self.player_id}", True, self.VERDE)
+        jogador_rect = jogador_texto.get_rect(center=(self.WIDTH//4, 20))
+        self.screen.blit(jogador_texto, jogador_rect)
+        
+        result, opponent_id = self.server.get_opponent_id(self.player_id, self.match_id)
+        oponente_texto = self.font_pequena.render(f"Oponente: {opponent_id}", True, self.BRANCO)
+        oponente_rect = oponente_texto.get_rect(center=(3 * self.WIDTH//4, 20))
+        self.screen.blit(oponente_texto, oponente_rect)
+        
         # Mensagem
         if self.mensagem:
             msg = self.font_media.render(self.mensagem, True, self.BRANCO)
             msg_rect = msg.get_rect(center=(self.WIDTH//2, self.HEIGHT//2))
             self.screen.blit(msg, msg_rect)
+        
+        # Indicação de turno
+        try:
+            current_turn = self.server.get_current_turn(self.match_id)
+            turno_texto = "Sua vez" if current_turn == self.player_id else "Vez do oponente"
+            turno_surface = self.font_media.render(turno_texto, True, self.VERDE if turno_texto == "Sua vez" else self.BRANCO)
+            turno_rect = turno_surface.get_rect(center=(self.WIDTH//2, self.HEIGHT//2 + 50))
+            self.screen.blit(turno_surface, turno_rect)
+        except Exception as e:
+            print(f"[ERROR] Erro ao obter o turno atual: {e}")
         
         # Botões de jogada
         for opcao, rect in self.botoes_jogo.items():
@@ -183,26 +203,49 @@ class ClienteJogoGUI:
                             if rect.collidepoint(mouse_pos):
                                 self.escolha_atual = opcao
                                 try:
-                                    sucesso, mensagem = self.servidor.make_move(
+                                    sucesso, mensagem = self.server.make_move(
                                         self.player_id, self.match_id, opcao)
                                     self.mensagem = mensagem
                                     
-                                    if "Você venceu" in mensagem:
-                                        self.placar_jogador += 1
-                                        self.rodada_atual += 1
-                                    elif "Você perdeu" in mensagem:
-                                        self.placar_oponente += 1
-                                        self.rodada_atual += 1
-                                    elif "Empate" in mensagem:
-                                        self.rodada_atual += 1
-                                    
-                                    if not self.verificar_fim_jogo():
-                                        self.escolha_atual = None
+                                    if sucesso:
+                                        if "Você venceu" in mensagem:
+                                            self.placar_jogador += 1
+                                            self.rodada_atual += 1
+                                        elif "Você perdeu" in mensagem:
+                                            self.placar_oponente += 1
+                                            self.rodada_atual += 1
+                                        elif "Empate" in mensagem:
+                                            self.rodada_atual += 1
                                         
-                                except:
-                                    self.estado = "menu"
+                                        if not self.verificar_fim_jogo():
+                                            self.escolha_atual = None
+                                    else:
+                                        print(f"[ERROR] Erro ao fazer jogada: {mensagem}")
+                                        self.mensagem = mensagem     
+                                except Exception as e:
+                                    print(f"[ERROR] Erro ao fazer jogada: {e}")
                                     self.mensagem = "Erro ao fazer jogada"
             
+            # Verifica se uma partida foi encontrada
+            if self.estado == "lobby":
+                print("[DEBUG] Verificando partida...")
+                sucesso, match_id = self.server.find_match(self.player_id)
+                if sucesso:
+                    if isinstance(match_id, int):
+                        print(f"[DEBUG] Partida encontrada: {match_id}")
+                        self.match_id = match_id
+                        self.estado = "jogando"
+                        self.mensagem = ""
+                    else:
+                        print(f"[DEBUG] {match_id}")
+                else:
+                    print("[DEBUG] Partida não encontrada")
+                    self.tempo_espera += 1
+                    if self.tempo_espera >= 5000:
+                        self.mensagem = "Nenhuma partida encontrada"
+                        self.tempo_espera = 0
+                        self.estado = "menu"
+                
             # Atualiza a tela
             if self.estado == "menu":
                 self.desenhar_menu()
@@ -239,6 +282,13 @@ if __name__ == "__main__":
         print(f"[DEBUG] Erro ao conectar ao servidor: {e}")
     
     print("[DEBUG] Iniciando interface gráfica...")
+    
     # Inicia o cliente com interface gráfica
     cliente = ClienteJogoGUI(args.ip, args.porta)
+    
+    # Registrar o jogador no servidor
+    print("[DEBUG] Registrando jogador no servidor...")
+    sucesso, mensagem = server.register_player(cliente.player_id, porta)
+    print(f"[DEBUG] {mensagem}")
+    
     cliente.executar() 

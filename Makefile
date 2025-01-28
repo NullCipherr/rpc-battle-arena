@@ -104,19 +104,6 @@ $(LOG_DIR):
 	$(call print_status,"Logs serão salvos em: $(LOG_DIR)"," 📝 ")
 	$(call print_status,"Utilize make help para exibir ajuda"," 📄 ")
 
-# Teste do jogo
-test-game: $(LOG_DIR)
-	$(call print_status, "Iniciando ambiente de teste."," 🧪 ")
-	$(call print_status, "Iniciando servidor na porta $(TEST_SERVER_PORT)"," 🚀 ")
-	@PORTA=$(TEST_SERVER_PORT) $(PYTHON) start_server.py > $(LOG_DIR)/server_test_$(DATE).log 2>&1 & echo $$! > $(LOG_DIR)/server.pid
-	@sleep 2
-	$(call print_status, "Iniciando cliente 1 na porta $(TEST_CLIENT_PORT)"," 👤 ")
-	@$(PYTHON) client_gui.py --ip localhost --porta $(TEST_SERVER_PORT) & echo $$! > $(LOG_DIR)/client1.pid
-	$(call print_status, "Iniciando cliente 2 na porta $(TEST_CLIENT2_PORT)"," 👥 ")
-	@$(PYTHON) client_gui.py --ip localhost --porta $(TEST_SERVER_PORT) & echo $$! > $(LOG_DIR)/client2.pid
-	$(call print_success, "Teste iniciado com sucesso.", " ")
-	$(call print_status, "make kill-all encerra os processos."," 🛑 ")
-
 # Iniciar servidor com logs > $(LOG_DIR)/server_$(DATE).log 2>&1
 server: $(LOG_DIR)
 	$(call print_status, "Iniciando servidor na porta $(SERVER_PORT)"," 🚀 ")
@@ -133,30 +120,7 @@ server: $(LOG_DIR)
 client: $(LOG_DIR)
 	$(call print_status,"Iniciando cliente...","👤 ")
 	@echo "$(CYAN)➜ Salvando logs em: $(LOG_DIR)/client_$(DATE).log$(RESET)"
-	@$(PYTHON) $(CLIENT) --ip $(SERVER_IP) --porta $(SERVER_PORT) 2>&1 | tee $(LOG_DIR)/client_$(DATE).log
-
-# Iniciar clientes com logs
-client1: $(LOG_DIR)
-	$(call print_status,"Iniciando cliente 1...","👤 ")
-	@echo "$(CYAN)➜ Salvando logs em: $(LOG_DIR)/client1_$(DATE).log$(RESET)"
-	@$(PYTHON) $(CLIENT) 2>&1 | tee $(LOG_DIR)/client1_$(DATE).log
-
-client2: $(LOG_DIR)
-	$(call print_status,"Iniciando cliente 2...","👥 ")
-	@echo "$(CYAN)➜ Salvando logs em: $(LOG_DIR)/client2_$(DATE).log$(RESET)"
-	@$(PYTHON) $(CLIENT) 2>&1 | tee $(LOG_DIR)/client2_$(DATE).log
-
-# Iniciar servidor em modo debug
-debug-server:
-	$(call print_status,"Iniciando servidor em modo debug na porta $(PORT)...","🐛 ")
-	@echo "$(YELLOW)➜ Comandos de debug:$(RESET)"
-	@echo "  $(MAGENTA)n$(RESET) - próxima linha"
-	@echo "  $(MAGENTA)c$(RESET) - continuar execução"
-	@echo "  $(MAGENTA)l$(RESET) - mostrar localização atual"
-	@echo "  $(MAGENTA)p variável$(RESET) - imprimir variável"
-	@echo "  $(MAGENTA)q$(RESET) - sair"
-	@echo "$(YELLOW)➜ A porta $(PORT) será usada automaticamente$(RESET)"
-	@PORTA=$(PORT) $(PYTHON) -m pdb $(SERVER)
+	@$(PYTHON) $(CLIENT) --ip $(SERVER_IP) --porta $(SERVER_PORT) 
 
 # Limpar arquivos gerados e logs
 clean:
@@ -192,4 +156,4 @@ help:
 	@echo "$(BOLD)$(BLUE)╚══════════════════════════════════════════════════════════════════╝$(RESET)"
 
 # Declarar alvos phony
-.PHONY: test server client client1 client2 clean help kill-all test-game
+.PHONY: server client clean help kill-all
