@@ -32,16 +32,26 @@ pip install pygame
 
 ## Como Usar
 
-### Inicie o Servidor
+### Iniciar o Servidor
 
 ```bash
 make server
 ```
 
-### Inicie o Cliente
+### Iniciar o Cliente
 
 ```bash
 make client
+```
+
+### Outros Comandos:
+
+```bash
+make clean
+```
+
+```bash
+make help
 ```
 
 ## Como Jogar
