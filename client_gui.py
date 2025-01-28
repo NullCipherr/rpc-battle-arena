@@ -1,3 +1,8 @@
+# Alunos
+# Andrei Roberto da Costa
+# Daniel Aparecido da Cunha Braz
+# Henrique Rosa de Araujo 
+
 import pygame
 import argparse
 import socket
@@ -8,10 +13,13 @@ import random
 from threading import Thread
 
 class ClienteJogoGUI:
+    """" Classe que representa o cliente do jogo com interface gráfica """
     def __init__(self, servidor_ip, servidor_porta):
-        pygame.font.init()
-        self.server = rpc.ServerProxy(f"http://{servidor_ip}:{servidor_porta}/")
-        self.player_id = random.randint(1000, 9999)
+        # Inicializa o cliente
+        pygame.font.init() # Inicializa as fontes do Pygame
+        self.server = rpc.ServerProxy(f"http://{servidor_ip}:{servidor_porta}/") # Conecta ao servidor
+        self.player_id = random.randint(1000, 9999) # ID do jogador
+        
         # Configurações da tela
         self.WIDTH = 800
         self.HEIGHT = 600
@@ -64,10 +72,11 @@ class ClienteJogoGUI:
         }
 
     def desenhar_menu(self):
+        """ Desenha a tela do menu """
         self.screen.fill(self.PRETO)
         
         # Título
-        titulo = self.font_grande.render("RPG Battle Arena", True, self.BRANCO)
+        titulo = self.font_grande.render("RPS Battle Arena", True, self.BRANCO)
         titulo_rect = titulo.get_rect(center=(self.WIDTH//2, 100))
         self.screen.blit(titulo, titulo_rect)
         
@@ -79,6 +88,7 @@ class ClienteJogoGUI:
             self.screen.blit(texto_surface, texto_rect)
 
     def desenhar_lobby(self):
+        """ Desenha a tela de lobby """
         self.screen.fill(self.PRETO)
         
         # Mensagem de procurando partida
@@ -91,9 +101,67 @@ class ClienteJogoGUI:
         contador = self.font_media.render(f"Aguardando{pontos}", True, self.BRANCO)
         contador_rect = contador.get_rect(center=(self.WIDTH//2, self.HEIGHT//2 + 50))
         self.screen.blit(contador, contador_rect)
+    
+    def desenhar_credits(self):
+        """ Desenha a tela de créditos """
+        self.screen.fill(self.PRETO)
+        
+        # Título
+        titulo = self.font_grande.render("Créditos", True, self.BRANCO)
+        titulo_rect = titulo.get_rect(center=(self.WIDTH//2, 100))
+        self.screen.blit(titulo, titulo_rect)
+        
+        # Informações da disciplina
+        info_disciplina = self.font_media.render("Desenvolvido para a disciplina de Sistemas Distribuídos", True, self.BRANCO)
+        info_rect = info_disciplina.get_rect(center=(self.WIDTH//2, 180))
+        self.screen.blit(info_disciplina, info_rect)
+        
+        uni = self.font_media.render("Universidade Estadual de Maringá", True, self.BRANCO)
+        uni_rect = uni.get_rect(center=(self.WIDTH//2, 220))
+        self.screen.blit(uni, uni_rect)
+        
+        # Equipe
+        equipe = self.font_media.render("Equipe:", True, self.BRANCO)
+        equipe_rect = equipe.get_rect(center=(self.WIDTH//2, 300))
+        self.screen.blit(equipe, equipe_rect)
+        
+        # Lista de integrantes
+        integrantes = [
+            "Andrei Roberto da Costa",
+            "Daniel Aparecido da Cunha Braz",
+            "Henrique Rosa de Araujo"
+        ]
+        
+        y_pos = 350
+        for integrante in integrantes:
+            nome = self.font_media.render(integrante, True, self.BRANCO)
+            nome_rect = nome.get_rect(center=(self.WIDTH//2, y_pos))
+            self.screen.blit(nome, nome_rect)
+            y_pos += 40
+        
+        # Botão voltar (estilo menu)
+        self.voltar_button = pygame.Rect(self.WIDTH//2 - 100, self.HEIGHT - 100, 200, 50)
+        pygame.draw.rect(self.screen, self.CINZA, self.voltar_button)
+        voltar = self.font_media.render("Voltar", True, self.BRANCO)
+        voltar_rect = voltar.get_rect(center=self.voltar_button.center)
+        self.screen.blit(voltar, voltar_rect)
 
     def desenhar_jogo(self):
+        """ Desenha a tela de jogo """
         self.screen.fill(self.PRETO)
+        
+        # Obter status da partida do servidor
+        try:
+            sucesso, status = self.server.get_match_status(self.player_id, self.match_id)
+            if sucesso:
+                scores, current_round, max_rounds = status
+                self.placar_jogador = scores.get(str(self.player_id), 0)
+                opponent_id = str(self.server.get_opponent_id(self.player_id, self.match_id)[1])
+                self.placar_oponente = scores.get(opponent_id, 0)
+                self.rodada_atual = current_round
+                self.max_rodadas = max_rounds
+        except Exception as e:
+            print(f"[ERROR] Erro ao obter status da partida: {e}")
         
         # Placar
         placar = self.font_grande.render(f"{self.placar_jogador} x {self.placar_oponente}", True, self.BRANCO)
@@ -140,6 +208,7 @@ class ClienteJogoGUI:
             self.screen.blit(texto, texto_rect)
 
     def handle_new_game(self):
+        """ Adiciona o jogador à lista de espera de novas partidas """
         try:
             success, message = self.server.add_to_waiting_list(self.player_id)
             self.mensagem = message
@@ -149,6 +218,7 @@ class ClienteJogoGUI:
             self.mensagem = f"Erro ao conectar ao servidor: {e}"
             
     def remove_new_game(self):
+        """ Remove o jogador da lista de espera de novas partidas """
         try:
             success, message = self.server.remove_waiting_list(self.player_id)
             self.mensagem = message
@@ -158,6 +228,7 @@ class ClienteJogoGUI:
             self.mensagem = f"Erro ao conectar ao servidor: {e}"
 
     def verificar_fim_jogo(self):
+        """ Verifica se o jogo terminou """
         if self.placar_jogador >= (self.max_rodadas // 2 + 1):
             self.mensagem = "Você venceu o jogo!"
             self.estado = "menu"
@@ -169,6 +240,7 @@ class ClienteJogoGUI:
         return False
 
     def executar(self):
+        """ Executa o loop principal do jogo """
         # Inicializa o Pygame
         pygame.init()
         clock = pygame.time.Clock()
@@ -190,6 +262,9 @@ class ClienteJogoGUI:
                                     print("[DEBUG] Procurando nova partida...")
                                     self.estado = "lobby"
                                     self.handle_new_game()
+                                elif acao == "credits":
+                                    print("[DEBUG] Mostrando créditos...")
+                                    self.estado = "credits"
                                 elif acao == "quit":
                                     print("[DEBUG] Saindo do jogo...")
                                     self.remove_new_game()
@@ -225,7 +300,9 @@ class ClienteJogoGUI:
                                 except Exception as e:
                                     print(f"[ERROR] Erro ao fazer jogada: {e}")
                                     self.mensagem = "Erro ao fazer jogada"
-            
+                    elif self.estado == "credits":
+                        if self.voltar_button.collidepoint(mouse_pos):
+                            self.estado = "menu"
             # Verifica se uma partida foi encontrada
             if self.estado == "lobby":
                 print("[DEBUG] Verificando partida...")
@@ -251,6 +328,8 @@ class ClienteJogoGUI:
                 self.desenhar_menu()
             elif self.estado == "lobby":
                 self.desenhar_lobby()
+            elif self.estado == "credits":
+                self.desenhar_credits()
             elif self.estado == "jogando":
                 self.desenhar_jogo()
             

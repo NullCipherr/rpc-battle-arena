@@ -35,19 +35,15 @@ TEST_CLIENT2_PORT = 5002
 # Lista de comandos e suas descrições
 COMMANDS = \
 	"server - Iniciar servidor" \
-	"client1 - Iniciar cliente 1" \
-	"client2 - Iniciar cliente 2" \
-	"integration-test - Executar teste integrado" \
-	"debug-server - Debugar servidor" \
-	"check-port - Verificar porta" \
+	"client - Iniciar cliente" \
 	"clean - Limpar arquivos" \
-	"show-logs - Mostrar logs" \
-	"kill-all - Encerrar processos"
+	"killall - Encerrar processos"
 
 EXAMPLES = \
-	"make PORT=5001 server - Porta específica " \
-	"make debug-server - Modo debug" \
-	"make check-port PORT=5000 - Verifica porta"
+	"make server - Iniciar servidor" \
+	"make client - Iniciar cliente" \
+	"make clean - Limpar arquivos" \
+	"make killall - Encerrar processos"
 
 # Função para verificar porta e encontrar uma disponível
 define find_available_port
@@ -131,7 +127,7 @@ clean:
 	$(call print_success,"Limpeza concluída")
 
 # Matar todos os processos Python (parada de emergência)
-kill-all:
+killall:
 	$(call print_status,"  Encerrando todos os processos Python...")
 	@if [ -f "$(LOG_DIR)/server.pid" ]; then kill $$(cat $(LOG_DIR)/server.pid) 2>/dev/null || true; fi
 	@if [ -f "$(LOG_DIR)/client1.pid" ]; then kill $$(cat $(LOG_DIR)/client1.pid) 2>/dev/null || true; fi
@@ -156,4 +152,4 @@ help:
 	@echo "$(BOLD)$(BLUE)╚══════════════════════════════════════════════════════════════════╝$(RESET)"
 
 # Declarar alvos phony
-.PHONY: server client clean help kill-all
+.PHONY: server client clean help killall

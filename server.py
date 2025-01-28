@@ -1,3 +1,8 @@
+# Alunos
+# Andrei Roberto da Costa
+# Daniel Aparecido da Cunha Braz
+# Henrique Rosa de Araujo 
+
 import xmlrpc.server as rpc
 import socket
 import sys
@@ -17,13 +22,41 @@ class GameServer:
         self.current_turn = {}  # Armazena o jogador atual de cada partida
         
     def register_player(self, player_id, port):
-        """Registra um novo jogador se o ID não estiver em uso"""
+        """
+        Registra um novo jogador no sistema, associando seu ID e porta.
+
+        Args:
+            player_id (str): O identificador único do jogador.
+            port (int): A porta na qual o jogador está escutando.
+
+        Returns:
+            tuple: Um booleano indicando sucesso ou falha e uma mensagem explicativa.
+                - (True, "Jogador {player_id} registrado com sucesso") se o registro for bem-sucedido.
+                - (False, "ID de jogador já existe") se o ID já estiver registrado.
+
+        Observações:
+            - O jogador só será registrado se o `player_id` ainda não estiver na lista de jogadores.
+        """
         if player_id in self.players:
             return False, "ID de jogador já existe"
         self.players[player_id] = {"port": port, "in_game": False}
         return True, f"Jogador {player_id} registrado com sucesso"
     
     def remove_waiting_list(self, player_id):
+        """
+        Remove um jogador da lista de espera.
+
+        Args:
+            player_id (str): O identificador único do jogador.
+
+        Returns:
+            tuple: Um booleano indicando sucesso ou falha e uma mensagem explicativa.
+                - (True, "Jogador {player_id} removido da lista de espera") se a remoção for bem-sucedida.
+                - (False, "Jogador {player_id} não está na lista de espera") se o jogador não estiver na lista.
+
+        Observações:
+            - A operação não altera o status do jogador na lista geral de jogadores (`self.players`).
+        """
         print(f"[DEBUG] Removendo jogador {player_id} da lista de espera...")
         if player_id in self.waiting_list:
             self.waiting_list.remove(player_id)
@@ -31,7 +64,20 @@ class GameServer:
         return False, f"Jogador {player_id} não está na lista de espera"
 
     def add_to_waiting_list(self, player_id):
-        """Adiciona um jogador à lista de espera"""
+        """
+        Adiciona um jogador à lista de espera, preparando-o para ser incluído em uma partida.
+
+        Args:
+            player_id (str): O identificador único do jogador.
+
+        Returns:
+            tuple: Um booleano indicando sucesso e uma mensagem informativa.
+                - (True, "Aguardando mais jogadores") se o jogador for adicionado com sucesso.
+
+        Observações:
+            - O jogador será adicionado à lista de espera, e seu status em `self.players` será ajustado para indicar que ele não está em uma partida.
+            - É esperado que uma partida seja iniciada assim que o número mínimo de jogadores for atingido.
+        """
         print(f"[DEBUG] Adicionando jogador {player_id} à lista de espera...")
         self.waiting_list.append(player_id)
         print(f"[DEBUG] Jogador {player_id} adicionado à lista de espera")
@@ -39,29 +85,17 @@ class GameServer:
         print(f"[DEBUG] Jogadores na lista de espera: {len(self.waiting_list)}")
         return True, "Aguardando mais jogadores"
     
-    def update_players(self, match_id):
-        """Envia atualizações para ambos os jogadores"""
-        match_players = self.matches[match_id]
-        current_turn = self.current_turn[match_id]
-        for player in match_players:
-            port = self.players[player]["port"]
-            message = f"Atualização: É a vez do jogador {current_turn}"
-            self.send_message(player, port, message)
-            print(f"[DEBUG] Enviando atualização para jogador {player} na porta {port}")
-            print(f"[DEBUG] É a vez do jogador {current_turn}")
-    
-    def send_message(self, player_id, port, message):
-        """Envia uma mensagem para o jogador via socket"""
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.connect(('localhost', port))
-                sock.sendall(message.encode('utf-8'))
-                print(f"[DEBUG] Mensagem enviada para jogador {player_id} na porta {port}")
-        except ConnectionRefusedError:
-            print(f"[ERROR] Não foi possível conectar ao jogador {player_id} na porta {port}")
-    
     def find_match(self, player_id):
-        """Encontra ou cria uma partida para um jogador"""
+        """Encontra ou cria uma partida para o jogador especificado.
+        Args:
+            player_id (str): ID do jogador que está buscando uma partida.
+
+        Returns:
+            tuple: Um valor booleano indicando sucesso e uma mensagem ou o ID da partida.
+                - Se o jogador já estiver registrado em uma partida, retorna o ID da partida.
+                - Se não houver jogadores suficientes na lista de espera, retorna uma mensagem de espera.
+                - Caso contrário, cria uma nova partida com dois jogadores e retorna o ID da partida.
+        """
         if player_id not in self.players:
             return False, "Jogador não registrado"
             
@@ -88,7 +122,17 @@ class GameServer:
             return False, "Aguardando mais jogadores"
     
     def make_move(self, player_id, match_id, choice):
-        """Processa a jogada de um jogador"""
+        """Processa a jogada de um jogador em uma partida.
+        Args:
+            player_id (str): ID do jogador que está fazendo a jogada.
+            match_id (int): ID da partida em que a jogada está sendo feita.
+            choice (str): Escolha do jogador ("pedra", "papel" ou "tesoura").
+
+        Returns:
+            tuple: Um valor booleano indicando sucesso e uma mensagem de resultado.
+                - Se a jogada for registrada com sucesso, retorna uma mensagem de sucesso.
+                - Se ambos os jogadores fizerem suas escolhas, resolve a rodada e retorna o resultado.
+        """
         if match_id not in self.matches:
             return False, "Partida não encontrada"
         if player_id not in self.matches[match_id]:
@@ -117,29 +161,71 @@ class GameServer:
         return True, "Jogada registrada, aguardando oponente"
     
     def next_turn(self, match_id):
-        """Alterna o turno para o próximo jogador"""
+        """Alterna o turno para o próximo jogador em uma partida.
+        Args:
+            match_id (int): ID da partida em que o turno será alternado.
+        """
         match_players = self.matches[match_id]
         current_player = self.current_turn[match_id]
         next_player = match_players[1] if match_players[0] == current_player else match_players[0]
         self.current_turn[match_id] = next_player
         
     def get_opponent_id(self, player_id, match_id):
-        """Retorna o ID do oponente de um jogador"""
+        """Retorna o ID do oponente de um jogador em uma partida.
+        Args:
+            player_id (str): ID do jogador que deseja saber o oponente.
+            match_id (int): ID da partida em que o jogador está.
+        Returns:
+            tuple: Um valor booleano indicando sucesso e o ID do oponente.
+                - Se o jogador não estiver na partida, retorna uma mensagem de erro.
+        """
         if match_id not in self.matches:
             return False, "Partida não encontrada"
         if player_id not in self.matches[match_id]:
             return False, "Jogador não está nesta partida"
         match_players = self.matches[match_id]
         return True, [p for p in match_players if p != player_id][0]
+    
+    def get_match_status(self, player_id, match_id):
+        """Retorna o status atual de uma partida.
+        Args:
+            player_id (str): ID do jogador que solicita o status.
+            match_id (int): ID da partida.
+
+        Returns:
+            tuple: Um valor booleano indicando sucesso e o status da partida.
+                - O status inclui o placar atual, a rodada atual e o número máximo de rodadas.
+        """
+        if match_id not in self.matches or match_id not in self.scores:
+            return False, "Partida não encontrada"
+        
+        scores = self.scores[match_id]
+        current_round = sum(scores.values()) + 1
+        max_rounds = self.max_rounds
+        return True, (scores, current_round, max_rounds)
         
     def get_current_turn(self, match_id):
-        """Retorna o jogador atual de uma partida"""
+        """Retorna o ID do jogador que está no turno atual.
+        Args:
+            match_id (int): ID da partida.
+
+        Returns:
+            str or None: ID do jogador atual ou None se a partida não estiver registrada.
+        """
         if match_id in self.current_turn:
             return self.current_turn[match_id]
         return None
     
     def resolve_match(self, match_id):
-        """Determina o vencedor da rodada e atualiza o placar"""
+        """Determina o vencedor da rodada e atualiza o placar.
+        Args:
+            match_id (int): ID da partida.
+
+        Returns:
+            tuple: Um valor booleano indicando sucesso e uma mensagem com o resultado da rodada ou do jogo.
+                - Se um jogador atingir o número necessário de vitórias, a partida é encerrada e os dados são limpos.
+                - Caso contrário, apenas as escolhas são limpas para a próxima rodada.
+        """
         players = self.matches[match_id]
         choice1 = self.choices[players[0]]
         choice2 = self.choices[players[1]]
@@ -185,7 +271,14 @@ class GameServer:
         return True, resultado
 
     def get_match_status(self, player_id, match_id):
-        """Retorna o status atual da partida"""
+        """Retorna o status atual da partida
+        Args:
+            player_id (str): ID do jogador que solicita o status
+            match_id (int): ID da partida
+        Returns:
+            tuple: Um valor booleano indicando sucesso e o status da partida
+            - O status inclui o placar atual, a rodada atual e o número máximo de rodadas
+        """
         if match_id not in self.matches or match_id not in self.scores:
             return False, "Partida não encontrada"
         
@@ -195,21 +288,8 @@ class GameServer:
             "max_rounds": self.max_rounds
         }
 
-def check_port(ip, port):
-    """Verifica se a porta está disponível"""
-    print(f"[DEBUG] Verificando disponibilidade da porta {port}...")
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        print(f"[DEBUG] Tentando ligar a porta {port}...")
-        sock.bind((ip, port))
-        sock.close()
-        print(f"[DEBUG] Porta {port} disponível")
-        return True
-    except OSError:
-        print(f"[DEBUG] Porta {port} em uso")
-        return False
-
 if __name__ == "__main__":
+    """Função principal para iniciar o servidor RPS Battle Arena."""
     # Configurar argumentos de linha de comando
     parser = argparse.ArgumentParser(description='Servidor RPS Battle Arena')
     parser.add_argument('--ip', default='localhost', help='IP do servidor')
@@ -229,7 +309,6 @@ if __name__ == "__main__":
     servidor = rpc.SimpleXMLRPCServer((ip, porta))
     servidor.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     servidor.register_instance(GameServer())
-    servidor.register_function(check_port)
     servidor.register_function(servidor.system_listMethods, 'system.listMethods')
     print("[DEBUG] Servidor iniciado com sucesso")
     servidor.serve_forever()
