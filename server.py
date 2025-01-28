@@ -13,6 +13,7 @@ class GameServer:
         self.choices = {}  # Armazena as escolhas dos jogadores
         self.scores = {}   # Armazena o placar das partidas
         self.max_rounds = 5  # Número máximo de rodadas
+        self.waiting_list = []  # Lista de espera para partidas
         
     def register_player(self, player_id, port):
         """Registra um novo jogador se o ID não estiver em uso"""
@@ -20,6 +21,35 @@ class GameServer:
             return False, "ID de jogador já existe"
         self.players[player_id] = {"port": port, "in_game": False}
         return True, f"Jogador {player_id} registrado com sucesso"
+    
+    def remove_waiting_list(self, player_id):
+        print(f"[DEBUG] Removendo jogador {player_id} da lista de espera...")
+        if player_id in self.waiting_list:
+            self.waiting_list.remove(player_id)
+            print(f"[DEBUG] Jogador {player_id} removido da lista de espera")
+            print(f"[DEBUG] Jogadores na lista de espera: {len(self.waiting_list)}")
+            return True, f"Jogador {player_id} removido da lista de espera"
+        return False, f"Jogador {player_id} não está na lista de espera"
+
+    def add_to_waiting_list(self, player_id):
+        """Adiciona um jogador à lista de espera e inicia o jogo quando houver um par"""
+        print(f"[DEBUG] Adicionando jogador {player_id} à lista de espera...")
+        self.waiting_list.append(player_id)
+        print(f"[DEBUG] Jogador {player_id} adicionado à lista de espera")
+        self.players[player_id] = {"in_game": False}
+        print(f"[DEBUG] Jogadores na lista de espera: {len(self.waiting_list)}")
+        if len(self.waiting_list) == 2:
+            print("[DEBUG] Dois jogadores na lista de espera")
+            print("[DEBUG] Iniciando partida...")
+            player1 = self.waiting_list.pop(0)
+            player2 = self.waiting_list.pop(0)
+            match_id = len(self.matches)
+            self.matches[match_id] = [player1, player2]
+            self.scores[match_id] = {player1: 0, player2: 0}
+            self.players[player1]["in_game"] = True
+            self.players[player2]["in_game"] = True
+            return True, f"Partida iniciada entre {player1} e {player2}"
+        return True, "Aguardando mais jogadores"
     
     def find_match(self, player_id):
         """Encontra ou cria uma partida para um jogador"""
@@ -149,11 +179,6 @@ def signal_handler(signum, frame):
     """Handler para shutdown gracioso"""
     print("\nEncerrando servidor...")
     sys.exit(0)
-    
-class CustomXMLRPCServer(rpc.SimpleXMLRPCServer):
-    def process_request(self, request, client_address):
-        print(f"[DEBUG] Cliente conectado: {client_address}")
-        super().process_request(request, client_address)
 
 if __name__ == "__main__":
     # Configurar argumentos de linha de comando

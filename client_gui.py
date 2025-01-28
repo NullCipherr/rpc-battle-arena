@@ -9,10 +9,9 @@ from threading import Thread
 
 class ClienteJogoGUI:
     def __init__(self, servidor_ip, servidor_porta):
-        # Inicializa o Pygame
-        pygame.init()
         pygame.font.init()
-        
+        self.server = rpc.ServerProxy(f"http://{servidor_ip}:{servidor_porta}/")
+        self.player_id = random.randint(1000, 9999)
         # Configurações da tela
         self.WIDTH = 800
         self.HEIGHT = 600
@@ -43,7 +42,7 @@ class ClienteJogoGUI:
         self.rodada_atual = 1
         self.max_rodadas = 5
         
-        self.player_id = f"player_{random.randint(1000, 9999)}"
+        
         print(f"[DEBUG] ID do Jogador: {self.player_id}")
         self.match_id = None
         print(f"[DEBUG] ID da Partida: {self.match_id}")
@@ -120,18 +119,23 @@ class ClienteJogoGUI:
             texto_rect = texto.get_rect(center=rect.center)
             self.screen.blit(texto, texto_rect)
 
-    def procurar_partida(self):
+    def handle_new_game(self):
         try:
-            sucesso, self.match_id = self.servidor.find_match(self.player_id)
-            if sucesso:
-                self.estado = "jogando"
-                self.mensagem = "Partida encontrada! Faça sua jogada."
-                self.placar_jogador = 0
-                self.placar_oponente = 0
-                self.rodada_atual = 1
-        except:
-            self.estado = "menu"
-            self.mensagem = "Erro ao conectar ao servidor"
+            success, message = self.server.add_to_waiting_list(self.player_id)
+            self.mensagem = message
+            if success:
+                self.estado = "lobby"
+        except Exception as e:
+            self.mensagem = f"Erro ao conectar ao servidor: {e}"
+            
+    def remove_new_game(self):
+        try:
+            success, message = self.server.remove_waiting_list(self.player_id)
+            self.mensagem = message
+            if success:
+                self.estado = "menu"
+        except Exception as e:
+            self.mensagem = f"Erro ao conectar ao servidor: {e}"
 
     def verificar_fim_jogo(self):
         if self.placar_jogador >= (self.max_rodadas // 2 + 1):
@@ -145,29 +149,30 @@ class ClienteJogoGUI:
         return False
 
     def executar(self):
+        # Inicializa o Pygame
+        pygame.init()
         clock = pygame.time.Clock()
         
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     print("[DEBUG] Saindo do jogo...")
+                    self.remove_new_game()
                     pygame.quit()
                     print("[DEBUG] Jogo finalizado.")
                     sys.exit()
-                    print("[DEBUG] Sistema encerrado.")
-                
-                if event.type == pygame.MOUSEBUTTONDOWN:
+                elif event.type == pygame.MOUSEBUTTONDOWN:
                     mouse_pos = pygame.mouse.get_pos()
-                    
                     if self.estado == "menu":
                         for acao, rect in self.botoes_menu.items():
                             if rect.collidepoint(mouse_pos):
                                 if acao == "new_game":
+                                    print("[DEBUG] Procurando nova partida...")
                                     self.estado = "lobby"
-                                    print("[DEBUG] Procurando partida...")
-                                    Thread(target=self.procurar_partida).start()
+                                    self.handle_new_game()
                                 elif acao == "quit":
                                     print("[DEBUG] Saindo do jogo...")
+                                    self.remove_new_game()
                                     pygame.quit()
                                     print("[DEBUG] Jogo finalizado.")
                                     sys.exit()
@@ -232,10 +237,6 @@ if __name__ == "__main__":
         print(f"[DEBUG] Métodos disponíveis: {response}")
     except Exception as e:
         print(f"[DEBUG] Erro ao conectar ao servidor: {e}")
-    
-    # IP Local automatico para debug
-    ip_local = socket.gethostbyname(socket.gethostname())
-    print(f"\n[DEBUG] IP Local: {ip_local}")
     
     print("[DEBUG] Iniciando interface gráfica...")
     # Inicia o cliente com interface gráfica

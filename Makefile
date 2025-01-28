@@ -117,7 +117,7 @@ test-game: $(LOG_DIR)
 	$(call print_success, "Teste iniciado com sucesso.", " ")
 	$(call print_status, "make kill-all encerra os processos."," 🛑 ")
 
-# Iniciar servidor com logs
+# Iniciar servidor com logs > $(LOG_DIR)/server_$(DATE).log 2>&1
 server: $(LOG_DIR)
 	$(call print_status, "Iniciando servidor na porta $(SERVER_PORT)"," 🚀 ")
 	$(call print_status,"Salvando logs em: $(LOG_DIR)/server_$(DATE).log"," 📝 ")
@@ -127,9 +127,9 @@ server: $(LOG_DIR)
 	fi 
 	@echo "🚀 Iniciando servidor..."; \
 	touch $(LOG_DIR)/server_$(DATE).log; \
-	$(PYTHON) server.py --ip $(SERVER_IP) --porta $(SERVER_PORT) > $(LOG_DIR)/server_$(DATE).log 2>&1
+	$(PYTHON) server.py --ip $(SERVER_IP) --porta $(SERVER_PORT)
 
-# Iniciar cliente com logs
+# Iniciar cliente com logs  2>&1 | tee $(LOG_DIR)/client_$(DATE).log
 client: $(LOG_DIR)
 	$(call print_status,"Iniciando cliente...","👤 ")
 	@echo "$(CYAN)➜ Salvando logs em: $(LOG_DIR)/client_$(DATE).log$(RESET)"
