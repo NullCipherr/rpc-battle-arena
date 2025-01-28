@@ -44,11 +44,21 @@ make server
 make client
 ```
 
-### Outros Comandos:
+## Outros Comandos:
+
+### Matar todos os processos
+
+```bash
+make killall
+```
+
+### Limpar Logs
 
 ```bash
 make clean
 ```
+
+### Ajuda
 
 ```bash
 make help
