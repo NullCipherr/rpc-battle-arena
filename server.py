@@ -1,7 +1,10 @@
-from xmlrpc.server import SimpleXMLRPCServer
-from xmlrpc.server import SimpleXMLRPCRequestHandler
+import xmlrpc.server as rpc
+import socket
+import sys
 import random
 import os
+import signal
+import argparse
 
 class GameServer:
     def __init__(self):
@@ -116,24 +119,64 @@ class GameServer:
             "max_rounds": self.max_rounds
         }
 
-def main():
-    # Se estiver em modo debug, usa a porta da variável de ambiente
-    if 'PORTA' in os.environ:
-        porta = int(os.environ['PORTA'])
-    else:
-        porta = int(input("Digite a porta do servidor: "))
+def check_port(ip, port):
+    """Verifica se a porta está disponível"""
+    print(f"[DEBUG] Verificando disponibilidade da porta {port}...")
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        print(f"[DEBUG] Tentando ligar a porta {port}...")
+        sock.bind((ip, port))
+        sock.close()
+        print(f"[DEBUG] Porta {port} disponível")
+        return True
+    except OSError:
+        print(f"[DEBUG] Porta {port} em uso")
+        return False
+
+def cleanup_socket(ip, port):
+    """Força liberação da porta"""
+    import subprocess
+    print(f"[DEBUG] Forçando liberação da porta {port}...")
+    try:
+        subprocess.run(['fuser', '-k', f'{port}/tcp'], stderr=subprocess.DEVNULL)
+        print(f"[DEBUG] Porta {port} liberada")
+        return True
+    except:
+        print(f"[DEBUG] Erro ao liberar porta {port}")
+        return False
+
+def signal_handler(signum, frame):
+    """Handler para shutdown gracioso"""
+    print("\nEncerrando servidor...")
+    sys.exit(0)
     
-    # Cria o servidor
-    servidor = SimpleXMLRPCServer(("localhost", porta), 
-                               requestHandler=SimpleXMLRPCRequestHandler,
-                               allow_none=True)
-    
-    # Registra a instância do jogo
-    jogo = GameServer()
-    servidor.register_instance(jogo)
-    
-    print(f"Servidor rodando na porta {porta}...")
-    servidor.serve_forever()
+class CustomXMLRPCServer(rpc.SimpleXMLRPCServer):
+    def process_request(self, request, client_address):
+        print(f"[DEBUG] Cliente conectado: {client_address}")
+        super().process_request(request, client_address)
 
 if __name__ == "__main__":
-    main()
+    # Configurar argumentos de linha de comando
+    parser = argparse.ArgumentParser(description='Servidor RPS Battle Arena')
+    parser.add_argument('--ip', default='localhost', help='IP do servidor')
+    parser.add_argument('--porta', type=int, default=5000, help='Porta do servidor')
+    args = parser.parse_args()    
+    
+    ip = args.ip
+    porta = args.porta
+
+    print("[DEBUG] Iniciando servidor RPS Battle Arena...")
+    print(f"[SETTINGS] IP: {ip}")
+    print(f"[SETTINGS] Porta: {porta}")
+    print(f"[SETTINGS] PID do servidor: {os.getpid()}")
+
+    # Iniciar servidor
+    print(f"[DEBUG] Iniciando servidor em {ip}:{porta}")
+    servidor = rpc.SimpleXMLRPCServer((ip, porta))
+    servidor.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    servidor.register_instance(GameServer())
+    servidor.register_function(check_port)
+    servidor.register_function(cleanup_socket)
+    servidor.register_function(servidor.system_listMethods, 'system.listMethods')
+    print("[DEBUG] Servidor iniciado com sucesso")
+    servidor.serve_forever()

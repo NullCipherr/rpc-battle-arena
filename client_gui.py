@@ -1,7 +1,7 @@
 import pygame
 import argparse
 import socket
-import xmlrpc.client
+import xmlrpc.client as rpc
 import time
 import sys
 import random
@@ -17,7 +17,7 @@ class ClienteJogoGUI:
         self.WIDTH = 800
         self.HEIGHT = 600
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
-        pygame.display.set_caption("Pedra, Papel e Tesoura - RPG Battle Arena")
+        pygame.display.set_caption("RPS Battle Arena")
         
         # Fontes
         self.font_grande = pygame.font.SysFont('arial', 64)
@@ -43,11 +43,12 @@ class ClienteJogoGUI:
         self.rodada_atual = 1
         self.max_rodadas = 5
         
-        # Conexão com servidor
-        self.servidor = xmlrpc.client.ServerProxy(f'http://{servidor_ip}:{servidor_porta}')
         self.player_id = f"player_{random.randint(1000, 9999)}"
+        print(f"[DEBUG] ID do Jogador: {self.player_id}")
         self.match_id = None
+        print(f"[DEBUG] ID da Partida: {self.match_id}")
         self.escolha_atual = None
+        print(f"[DEBUG] Escolha Atual: {self.escolha_atual}")
         
         # Botões do menu
         self.botoes_menu = {
@@ -149,8 +150,11 @@ class ClienteJogoGUI:
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
+                    print("[DEBUG] Saindo do jogo...")
                     pygame.quit()
+                    print("[DEBUG] Jogo finalizado.")
                     sys.exit()
+                    print("[DEBUG] Sistema encerrado.")
                 
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     mouse_pos = pygame.mouse.get_pos()
@@ -160,10 +164,14 @@ class ClienteJogoGUI:
                             if rect.collidepoint(mouse_pos):
                                 if acao == "new_game":
                                     self.estado = "lobby"
+                                    print("[DEBUG] Procurando partida...")
                                     Thread(target=self.procurar_partida).start()
                                 elif acao == "quit":
+                                    print("[DEBUG] Saindo do jogo...")
                                     pygame.quit()
+                                    print("[DEBUG] Jogo finalizado.")
                                     sys.exit()
+                                    print("[DEBUG] Sistema encerrado.")
                     
                     elif self.estado == "jogando":
                         for opcao, rect in self.botoes_jogo.items():
@@ -201,27 +209,35 @@ class ClienteJogoGUI:
             pygame.display.flip()
             clock.tick(60)
 
-
-def main():
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--ip', default='localhost', help='IP do servidor')
-    parser.add_argument('--porta', type=int, default=5000, help='Porta do servidor')
+    parser.add_argument('--porta', type=int, default=8080, help='Porta do servidor')
     args = parser.parse_args()
+    
+    # Configuração inicial
+    ip = args.ip
+    porta = args.porta
+    
+    print("[DEBUG] Iniciando cliente...")
+    print(f"[DEBUG] Conectando ao servidor: {ip}:{porta}")
+    server_url = f"http://{ip}:{porta}/"
+    server = rpc.ServerProxy(server_url)
+    
+    try:
+        # Testar conexão com o servidor
+        print("[DEBUG] Testando conexão com o servidor...")
+        response = server.system.listMethods()
+        print("[DEBUG] Conexão estabelecida com sucesso")
+        print(f"[DEBUG] Métodos disponíveis: {response}")
+    except Exception as e:
+        print(f"[DEBUG] Erro ao conectar ao servidor: {e}")
     
     # IP Local automatico para debug
     ip_local = socket.gethostbyname(socket.gethostname())
     print(f"\n[DEBUG] IP Local: {ip_local}")
-    print(f"[DEBUG] Conectando ao servidor: {args.ip}:{args.porta}")
     
-    # Configuração inicial
-    # servidor_ip = input("\nDigite o IP do servidor (padrão: localhost): ") or "localhost"
-    # servidor_porta = 5000
-    # print("[DEBUG] A porta do servidor é: ", servidor_porta)
-    # print("[DEBUG] O IP do servidor é: ", servidor_ip)
-    
+    print("[DEBUG] Iniciando interface gráfica...")
     # Inicia o cliente com interface gráfica
     cliente = ClienteJogoGUI(args.ip, args.porta)
-    cliente.executar()
-
-if __name__ == "__main__":
-    main() 
+    cliente.executar() 
