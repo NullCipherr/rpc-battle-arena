@@ -195,15 +195,16 @@ class GameServer:
         return True, "Jogada registrada, aguardando oponente"
     
     def return_score(self, player_id, match_id):
-        """Retorna o placar atual de uma partida para um jogador."""
-        player_id = int(player_id)
-        match_id = int(match_id)
-        print(f"[DEBUG] Retornando placar da partida {match_id} para o jogador {player_id}")
-        if match_id not in self.matches:
-            return False, "Partida não encontrada"
-        if player_id not in self.matches[match_id]:
-            return False, "Jogador não está nesta partida"
-        return self.scores[match_id]
+        # Certifique-se de que as chaves são strings
+        key = f"{player_id}_{match_id}"
+        
+        # Verifica se a chave existe no dicionário
+        if key in self.scores:
+            # Retorna o placar armazenado
+            return self.scores[key]
+        else:
+            # Retorna valores padrão (0, 0) se a chave não existir
+            return (0, 0)
     
     def next_turn(self, match_id):
         """Alterna o turno para o próximo jogador em uma partida.

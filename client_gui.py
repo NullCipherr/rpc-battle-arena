@@ -154,17 +154,21 @@ class ClienteJogoGUI:
         self.screen.fill(self.PRETO)
         
         # Somente atualiza o placar quando necessário
-        if self.needs_score_update == True:
+        if self.needs_score_update:
             self.needs_score_update = False
             print(f"[DEBUG] Atualizando placar da partida {self.match_id}...")
             # Chama o método do servidor para adicionar o placar
             try:
-                # Convert match_id to string to fix dictionary key error
-                result = self.server.return_score(self.player_id, self.match_id)
-                if result is not None:
-                    print(f"[DEBUG] Placar atualizado: {self.placar_jogador} x {self.placar_oponente}")
+                if self.player_id is not None and self.match_id is not None:
+                    # Convert match_id to string to fix dictionary key error
+                    result = self.server.return_score(str(self.player_id), str(self.match_id))
+                    if result is not None and isinstance(result, (tuple, list)) and len(result) == 2:
+                        self.placar_jogador, self.placar_oponente = result # Atualiza o placar
+                        print(f"[DEBUG] Placar atualizado: {self.placar_jogador} x {self.placar_oponente}")
+                    else:
+                        print("[ERROR] Resultado inválido retornado pelo servidor")
                 else:
-                    print("[ERROR] Erro ao atualizar placar: resultado nulo")
+                    print("[ERROR] player_id ou match_id é None")
             except Exception as e:
                 print(f"[ERROR] Erro ao atualizar placar: {str(e)}")
         
@@ -362,7 +366,7 @@ if __name__ == "__main__":
     print("[DEBUG] Iniciando cliente...")
     print(f"[DEBUG] Conectando ao servidor: {ip}:{porta}")
     server_url = f"http://{ip}:{porta}/"
-    server = rpc.ServerProxy(server_url)
+    server = rpc.ServerProxy(server_url, allow_none=True)
     
     try:
         # Testar conexão com o servidor
