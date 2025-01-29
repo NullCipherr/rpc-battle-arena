@@ -89,6 +89,8 @@ class GameServer:
         print(f"[DEBUG] Removendo jogador {player_id} da lista de espera...")
         if player_id in self.waiting_list:
             self.waiting_list.remove(player_id)
+            if player_id in self.players:
+                self.players[player_id]["in_game"] = False
             return True, f"Jogador {player_id} removido da lista de espera"
         return False, f"Jogador {player_id} não está na lista de espera"
 
@@ -139,13 +141,14 @@ class GameServer:
             player1 = self.waiting_list.pop(0)
             player2 = self.waiting_list.pop(0)
             result, message = self.add_match(player1, player2)
-            match_id = message
+            
             if not result:
                 return False, "[DEBUG] Erro ao criar partida"
             else:
                 print(f"[DEBUG] Partida com o id {message} criado com sucesso")
             self.players[player1]["in_game"] = True
             self.players[player2]["in_game"] = True
+            print(f"[DEBUG] Jogadores na lista de espera: {len(self.waiting_list)}")
             return True, match_id
         else:
             print("[DEBUG] Menos de dois jogadores na lista de espera")
@@ -191,18 +194,26 @@ class GameServer:
             print(f"[DEBUG] Resultado da rodada: {message}")
             print(f"[DEBUG] Placar atual: {self.scores[match_id]}")
             return result, message
-        
-        return True, "Jogada registrada, aguardando oponente"
+        # Se ainda não houver duas escolhas, retorne uma mensagem de espera
+        return True, "Aguardando a jogada do oponente"
     
     def return_score(self, player_id, match_id):
+        if player_id is None or match_id is None:
+            print("[ERROR] player_id ou match_id é None")
+            return (0, 0)
         # Certifique-se de que as chaves são strings
         key = f"{player_id}_{match_id}"
         
         # Verifica se a chave existe no dicionário
         if key in self.scores:
-            # Retorna o placar armazenado
-            return self.scores[key]
+            placar = self.scores[key]
+            if isinstance(placar, (tuple, list)) and len(placar) == 2:
+                return placar
+            else:
+                print(f"[WARNING] Valor inválido no dicionário para a chave {key}: {placar}")
+                return (0, 0) # Retorna valores padrão (0, 0) se o valor for inválido
         else:
+            print(f"[WARNING] Chave não encontrada no dicionário: {key}")
             # Retorna valores padrão (0, 0) se a chave não existir
             return (0, 0)
     
@@ -215,6 +226,33 @@ class GameServer:
         current_player = self.current_turn[match_id]
         next_player = match_players[1] if match_players[0] == current_player else match_players[0]
         self.current_turn[match_id] = next_player
+        
+    def remove_match(self, match_id):
+        """
+        Remove uma partida ativa quando o jogo termina.
+
+        Args:
+            match_id (int): ID da partida a ser removida.
+
+        Returns:
+            tuple: Um valor booleano indicando sucesso e uma mensagem informativa.
+        """
+        if match_id not in self.matches:
+            return False, "Partida não encontrada"
+        
+        # Recupera os jogadores da partida
+        players = self.matches.pop(match_id)
+        
+        # Remove informações da partida
+        self.scores.pop(match_id, None)
+        self.current_turn.pop(match_id, None)
+        
+        # Atualiza status dos jogadores
+        for player in players:
+            if player in self.players:
+                self.players[player]["in_game"] = False
+        
+        return True, f"Partida {match_id} removida com sucesso"
         
     def get_opponent_id(self, player_id, match_id):
         """Retorna o ID do oponente de um jogador em uma partida.
@@ -275,49 +313,45 @@ class GameServer:
                 - Se um jogador atingir o número necessário de vitórias, a partida é encerrada e os dados são limpos.
                 - Caso contrário, apenas as escolhas são limpas para a próxima rodada.
         """
+        if match_id not in self.matches:
+            return False, "Partida não encontrada"
+        
         players = self.matches[match_id]
+        if len(players) != 2:
+            return False, "Número insuficiente de jogadores"
+        
+        player1, player2 = players
         choice1 = self.choices[players[0]]
         choice2 = self.choices[players[1]]
         
+        if choice1 is None or choice2 is None:
+            return False, "Ambos os jogadores precisam fazer uma escolha"
+        
         combinacoes_vencedoras = {
-            "pedra": "tesoura",
-            "papel": "pedra",
-            "tesoura": "papel"
+            ("pedra", "tesoura"): player1,
+            ("tesoura", "papel"): player1,
+            ("papel", "pedra"): player1,
+            ("tesoura", "pedra"): player2,
+            ("papel", "tesoura"): player2,
+            ("pedra", "papel"): player2,
         }
         
         # Lógica para determinar o vencedor da rodada
         if choice1 == choice2:
-            resultado = "Empate na rodada!"
-        elif (choice1 == "pedra" and choice2 == "tesoura") or \
-            (choice1 == "tesoura" and choice2 == "papel") or \
-            (choice1 == "papel" and choice2 == "pedra"):
-            resultado = f"Jogador {players[0]} venceu a rodada!"
-            self.scores[match_id][players[0]] += 1
+            result_msg = f"Empate na rodada!"
         else:
-            resultado = f"Jogador {players[1]} venceu a rodada!"
-            self.scores[match_id][players[1]] += 1
-            
-        # Verifica se alguém ganhou o jogo
-        for player, score in self.scores[match_id].items():
-            if score >= (self.max_rounds // 2 + 1):
-                resultado = f"Jogador {player} venceu o jogo!"
-                # Limpa os dados da partida
-                del self.scores[match_id]
-                del self.matches[match_id]
-                for p in players:
-                    if p in self.choices:
-                        del self.choices[p]
-                return True, resultado
+            winner = combinacoes_vencedoras.get((choice1, choice2))
+            self.scores[match_id][winner] += 1
+            result_msg = f"{winner} venceu a rodada!"
         
-        # Limpa apenas as escolhas para a próxima rodada
-        for player in players:
-            if player in self.choices:
-                del self.choices[player]
+        # Limpa as escolhas para a próxima rodada
+        del self.choices[player1]
+        del self.choices[player2]
         
         # Alterna a vez para o próximo jogador
         self.current_turn[match_id] = players[1] if self.current_turn[match_id] == players[0] else players[0]
-
-        return True, resultado
+        print(f"[DEBUG] Resultado da rodada: {result_msg}")
+        return True, result_msg
 
     def get_match_status(self, player_id, match_id):
         """Retorna o status atual da partida
