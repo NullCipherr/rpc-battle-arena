@@ -42,6 +42,35 @@ class GameServer:
         self.players[player_id] = {"port": port, "in_game": False}
         return True, f"Jogador {player_id} registrado com sucesso"
     
+    def add_match(self, player1, player2):
+        """Adiciona uma partida ao sistema.
+        Args:
+            player1 (str): ID do primeiro jogador.
+            player2 (str): ID do segundo jogador.
+        Returns:
+            tuple: Um valor booleano indicando sucesso e o ID da partida.
+        """
+        match_id = len(self.matches) + 1
+        self.matches[match_id] = [player1, player2]
+        self.scores[match_id] = {player1: 0, player2: 0}
+        self.current_turn[match_id] = player1  # Inicializa o turno com o primeiro jogador
+        return True, match_id
+    
+    def add_score(self, player_id, match_id):
+        """" Adiciona um ponto ao jogador vencedor da partida.
+        Args:
+            player_id (str): ID do jogador vencedor.
+            match_id (int): ID da partida.
+        Returns:
+            tuple: Um valor booleano indicando sucesso e uma mensagem informativa.
+        """
+        if match_id not in self.matches:
+            return False, "Partida não encontrada"
+        if player_id not in self.scores[match_id]:
+            return False, "Jogador não está nesta partida"
+        self.scores[match_id][player_id] += 1
+        return True, f"Ponto adicionado ao jogador {player_id}"
+    
     def remove_waiting_list(self, player_id):
         """
         Remove um jogador da lista de espera.
@@ -109,13 +138,14 @@ class GameServer:
             print("[DEBUG] Dois jogadores na lista de espera")
             player1 = self.waiting_list.pop(0)
             player2 = self.waiting_list.pop(0)
-            match_id = len(self.matches) + 1
-            self.matches[match_id] = [player1, player2]
-            self.scores[match_id] = {player1: 0, player2: 0}
+            result, message = self.add_match(player1, player2)
+            match_id = message
+            if not result:
+                return False, "[DEBUG] Erro ao criar partida"
+            else:
+                print(f"[DEBUG] Partida com o id {message} criado com sucesso")
             self.players[player1]["in_game"] = True
             self.players[player2]["in_game"] = True
-            self.current_turn[match_id] = player1  # Inicializa o turno com o primeiro jogador
-            print(f"[DEBUG] Partida criada: {match_id} com jogadores {player1} e {player2}")
             return True, match_id
         else:
             print("[DEBUG] Menos de dois jogadores na lista de espera")
@@ -157,8 +187,23 @@ class GameServer:
         match_players = self.matches[match_id]
         if len(match_players) == 2 and all(p in self.choices for p in match_players):
             print(f"[DEBUG] Ambos os jogadores fizeram suas escolhas")
-            return self.resolve_match(match_id)
+            result, message = self.resolve_match(match_id)
+            print(f"[DEBUG] Resultado da rodada: {message}")
+            print(f"[DEBUG] Placar atual: {self.scores[match_id]}")
+            return result, message
+        
         return True, "Jogada registrada, aguardando oponente"
+    
+    def return_score(self, player_id, match_id):
+        """Retorna o placar atual de uma partida para um jogador."""
+        player_id = int(player_id)
+        match_id = int(match_id)
+        print(f"[DEBUG] Retornando placar da partida {match_id} para o jogador {player_id}")
+        if match_id not in self.matches:
+            return False, "Partida não encontrada"
+        if player_id not in self.matches[match_id]:
+            return False, "Jogador não está nesta partida"
+        return self.scores[match_id]
     
     def next_turn(self, match_id):
         """Alterna o turno para o próximo jogador em uma partida.
@@ -200,9 +245,12 @@ class GameServer:
             return False, "Partida não encontrada"
         
         scores = self.scores[match_id]
+        print(f"[DEBUG] Placar da partida {match_id}: {scores}")
         current_round = sum(scores.values()) + 1
+        print(f"[DEBUG] Rodada atual: {current_round}")
         max_rounds = self.max_rounds
-        return True, (scores, current_round, max_rounds)
+        print(f"[DEBUG] Número máximo de rodadas: {max_rounds}")
+        return scores, current_round, max_rounds
         
     def get_current_turn(self, match_id):
         """Retorna o ID do jogador que está no turno atual.

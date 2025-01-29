@@ -44,6 +44,9 @@ class ClienteJogoGUI:
         self.tempo_espera = 0
         self.mensagem = ""
         
+        # Atualização do placar
+        self.needs_score_update = False
+        
         # Placar
         self.placar_jogador = 0
         self.placar_oponente = 0
@@ -150,18 +153,20 @@ class ClienteJogoGUI:
         """ Desenha a tela de jogo """
         self.screen.fill(self.PRETO)
         
-        # Obter status da partida do servidor
-        try:
-            sucesso, status = self.server.get_match_status(self.player_id, self.match_id)
-            if sucesso:
-                scores, current_round, max_rounds = status
-                self.placar_jogador = scores.get(str(self.player_id), 0)
-                opponent_id = str(self.server.get_opponent_id(self.player_id, self.match_id)[1])
-                self.placar_oponente = scores.get(opponent_id, 0)
-                self.rodada_atual = current_round
-                self.max_rodadas = max_rounds
-        except Exception as e:
-            print(f"[ERROR] Erro ao obter status da partida: {e}")
+        # Somente atualiza o placar quando necessário
+        if self.needs_score_update == True:
+            self.needs_score_update = False
+            print(f"[DEBUG] Atualizando placar da partida {self.match_id}...")
+            # Chama o método do servidor para adicionar o placar
+            try:
+                # Convert match_id to string to fix dictionary key error
+                result = self.server.return_score(self.player_id, self.match_id)
+                if result is not None:
+                    print(f"[DEBUG] Placar atualizado: {self.placar_jogador} x {self.placar_oponente}")
+                else:
+                    print("[ERROR] Erro ao atualizar placar: resultado nulo")
+            except Exception as e:
+                print(f"[ERROR] Erro ao atualizar placar: {str(e)}")
         
         # Placar
         placar = self.font_grande.render(f"{self.placar_jogador} x {self.placar_oponente}", True, self.BRANCO)
@@ -278,20 +283,25 @@ class ClienteJogoGUI:
                             if rect.collidepoint(mouse_pos):
                                 self.escolha_atual = opcao
                                 try:
-                                    sucesso, mensagem = self.server.make_move(
-                                        self.player_id, self.match_id, opcao)
+                                    sucesso, mensagem = self.server.make_move(self.player_id, self.match_id, opcao)
                                     self.mensagem = mensagem
-                                    
-                                    if sucesso:
-                                        if "Você venceu" in mensagem:
-                                            self.placar_jogador += 1
-                                            self.rodada_atual += 1
-                                        elif "Você perdeu" in mensagem:
-                                            self.placar_oponente += 1
-                                            self.rodada_atual += 1
-                                        elif "Empate" in mensagem:
-                                            self.rodada_atual += 1
+                                    print(f"[DEBUG] Jogada feita: {opcao}")
+                                    print(f'[DEBUG] Mensagem: {mensagem}')
+                                    print(f'[DEBUG] Sucesso: {sucesso}')
+                                    if sucesso == True:
+                                        # checa o placar
+                                        self.needs_score_update = True
+                                        self.rodada_atual += 1
                                         
+                                        print(f"[DEBUG] Jogada feita com sucesso: {mensagem}")
+                                        if "Você venceu" in mensagem:
+                                            print(f"[DEBUG] Você venceu a rodada {self.rodada_atual}")
+                                            self.placar_jogador += 1
+                                        if "Você perdeu" in mensagem:
+                                            print(f"[DEBUG] Você perdeu a rodada {self.rodada_atual}")
+                                            self.placar_oponente += 1
+                                        if "Empate" in mensagem:
+                                            pass
                                         if not self.verificar_fim_jogo():
                                             self.escolha_atual = None
                                     else:
@@ -307,18 +317,21 @@ class ClienteJogoGUI:
             if self.estado == "lobby":
                 print("[DEBUG] Verificando partida...")
                 sucesso, match_id = self.server.find_match(self.player_id)
+                print(f"[DEBUG] A partida foi encontrada? {sucesso}")
                 if sucesso:
                     if isinstance(match_id, int):
                         print(f"[DEBUG] Partida encontrada: {match_id}")
                         self.match_id = match_id
                         self.estado = "jogando"
                         self.mensagem = ""
+                        self.server.remove_waiting_list(self.player_id)
+                        print(f"[DEBUG] Jogador {self.player_id} removido da lista de espera")
                     else:
                         print(f"[DEBUG] {match_id}")
                 else:
-                    print("[DEBUG] Partida não encontrada")
+                    # print("[DEBUG] Partida não encontrada")
                     self.tempo_espera += 1
-                    if self.tempo_espera >= 5000:
+                    if self.tempo_espera >= 10000:
                         self.mensagem = "Nenhuma partida encontrada"
                         self.tempo_espera = 0
                         self.estado = "menu"
