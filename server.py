@@ -237,6 +237,18 @@ class GameServer:
             print(f"[WARNING] Chave não encontrada no dicionário: {key}")
             # Retorna valores padrão (0, 0) se a chave não existir
             return (0, 0)
+        
+    def check_game_over(self, match_id):
+        """Verifica se o jogo terminou e retorna o vencedor, se houver."""
+        if match_id not in self.scores:
+            return False, "Partida não encontrada"
+        
+        scores = self.scores[match_id]
+        max_score = self.max_rounds // 2 + 1
+        for player, score in scores.items():
+            if score >= max_score:
+                return True, player  # Retorna o ID do jogador vencedor
+        return False, "O jogo ainda não terminou"
     
     def next_turn(self, match_id):
         """Alterna o turno para o próximo jogador em uma partida.
@@ -412,9 +424,12 @@ class GameServer:
         del self.choices[player1]
         del self.choices[player2]
         
+        
+        # Debugs
         print(f"O turno atual é de {self.current_turn[match_id]}")
         print(f"[DEBUG] Resultado da rodada: {result_msg}")
         print(f"[DEBUG] Rodada atual: {self.round}")
+            
         return True, result_msg
 
     def get_match_status(self, player_id, match_id):
