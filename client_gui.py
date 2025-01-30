@@ -73,6 +73,39 @@ class ClienteJogoGUI:
             "papel": pygame.Rect(325, self.HEIGHT - 100, 150, 50),
             "tesoura": pygame.Rect(550, self.HEIGHT - 100, 150, 50)
         }
+        
+    def desenhar_resultado(self):
+        """ Desenha a tela de resultado do jogo com a mesma estética das outras telas """
+        self.screen.fill(self.PRETO)  # Fundo preto
+        
+        # Título do resultado
+        titulo = self.font_grande.render("Fim do Jogo", True, self.BRANCO)
+        titulo_rect = titulo.get_rect(center=(self.WIDTH // 2, 100))
+        self.screen.blit(titulo, titulo_rect)
+        
+        # Mensagem de resultado (vitória ou derrota)
+        resultado = self.font_media.render(self.mensagem, True, self.BRANCO)
+        resultado_rect = resultado.get_rect(center=(self.WIDTH // 2, self.HEIGHT // 2 - 50))
+        self.screen.blit(resultado, resultado_rect)
+        
+        # Placar final
+        placar_final = self.font_media.render(f"Placar Final: {self.placar_jogador} x {self.placar_oponente}", True, self.BRANCO)
+        placar_final_rect = placar_final.get_rect(center=(self.WIDTH // 2, self.HEIGHT // 2))
+        self.screen.blit(placar_final, placar_final_rect)
+        
+        # Botão para nova partida
+        nova_partida_rect = pygame.Rect(self.WIDTH // 2 - 100, self.HEIGHT // 2 + 100, 200, 50)
+        pygame.draw.rect(self.screen, self.VERDE, nova_partida_rect)
+        nova_partida_texto = self.font_media.render("Nova Partida", True, self.BRANCO)
+        nova_partida_texto_rect = nova_partida_texto.get_rect(center=nova_partida_rect.center)
+        self.screen.blit(nova_partida_texto, nova_partida_texto_rect)
+        
+        # Botão para voltar ao menu
+        voltar_menu_rect = pygame.Rect(self.WIDTH // 2 - 100, self.HEIGHT // 2 + 170, 200, 50)
+        pygame.draw.rect(self.screen, self.VERMELHO, voltar_menu_rect)
+        voltar_menu_texto = self.font_media.render("Voltar ao Menu", True, self.BRANCO)
+        voltar_menu_texto_rect = voltar_menu_texto.get_rect(center=voltar_menu_rect.center)
+        self.screen.blit(voltar_menu_texto, voltar_menu_texto_rect)
 
     def desenhar_menu(self):
         """ Desenha a tela do menu """
@@ -248,12 +281,12 @@ class ClienteJogoGUI:
     def verificar_fim_jogo(self):
         """ Verifica se o jogo terminou """
         if self.placar_jogador >= (self.max_rodadas // 2 + 1):
-            self.mensagem = "Você venceu o jogo!"
-            self.estado = "menu"
+            self.mensagem = "Você venceu a partida, Parabéns!"
+            self.estado = "resultado"
             return True
         elif self.placar_oponente >= (self.max_rodadas // 2 + 1):
-            self.mensagem = "Você perdeu o jogo!"
-            self.estado = "menu"
+            self.mensagem = "Você perdeu o jogo, Lamento!"
+            self.estado = "resultado"
             return True
         return False
 
@@ -286,6 +319,7 @@ class ClienteJogoGUI:
         sys.exit()
     
     def tratar_click(self, mouse_pos):
+        """ Trata os cliques do mouse de acordo com o estado atual """
         if self.estado == "menu":
             for acao, rect in self.botoes_menu.items():
                 if rect.collidepoint(mouse_pos):
@@ -301,6 +335,14 @@ class ClienteJogoGUI:
             self.fazer_jogada(mouse_pos)
         elif self.estado == "credits" and self.voltar_button.collidepoint(mouse_pos):
             self.estado = "menu"
+        elif self.estado == "resultado":
+            nova_partida_rect = pygame.Rect(self.WIDTH // 2 - 100, self.HEIGHT // 2 + 100, 200, 50)
+            voltar_menu_rect = pygame.Rect(self.WIDTH // 2 - 100, self.HEIGHT // 2 + 170, 200, 50)
+            if nova_partida_rect.collidepoint(mouse_pos):
+                self.estado = "lobby"
+                self.handle_new_game()
+            elif voltar_menu_rect.collidepoint(mouse_pos):
+                self.estado = "menu"
     
     def fazer_jogada(self, mouse_pos):
         if self.match_id is None:
@@ -332,33 +374,21 @@ class ClienteJogoGUI:
                 # Determina quem venceu a rodada
                 if str(self.player_id) in message:
                     print(f"[DEBUG] Você venceu a rodada!")
-                    # self.mensagem = f"Você venceu a rodada {self.rodada_atual}"
-                    # self.placar_jogador += 1 # Incrementa o placar do jogador local
-                    # self.sinc_rodada() # Sincroniza a rodada atual com o servidor
+                    self.placar_jogador += 1  # Incrementa o placar do jogador local
                 else:
                     print(f"[DEBUG] Você perdeu a rodada!")
-                    # self.mensagem = "Você perdeu a rodada!"
-                    # self.placar_oponente += 1 # Incrementa o placar do oponente local
-                    # self.sinc_rodada() # Sincroniza a rodada atual com o servidor
+                    self.placar_oponente += 1  # Incrementa o placar do oponente local
             elif message == "Empate na rodada!":
                 print(f"[DEBUG] Empate na rodada!")
-                # self.mensagem = "Empate na rodada!"
-                # self.sinc_rodada() # Sincroniza a rodada atual com o servidor
             
-            print(f"[DEBUG] Sincronizando dados do jogo...")
-            self.sinc_message() # Sincroniza a mensagem com o servidor
-            print(f"[DEBUG] Mensagem sincronizada: {self.mensagem}")
-            self.sinc_placar() # Sincroniza o placar com o servidor
-            print(f"[DEBUG] Placar sincronizado: {self.placar_jogador} - {self.placar_oponente}")
-            self.sinc_rodada() # Sincroniza a rodada com o servidor
-            print(f"[DEBUG] Rodada sincronizada: {self.rodada_atual}")
-
+            # Sincroniza o placar e a rodada com o servidor
+            self.sinc_placar()
+            self.sinc_rodada()
+            
             # Verifica se o jogo terminou
             if self.verificar_fim_jogo():
-                self.estado = "menu"
-                self.mensagem = "Fim do jogo!"
+                self.estado = "resultado"
                 print(f"[DEBUG] Fim do jogo! Placar final: {self.placar_jogador} x {self.placar_oponente}")
-            print(f"[DEBUG] Placar atualizado: {self.placar_jogador} - {self.placar_oponente}")
         except Exception as e:
             print(f"[ERROR] Erro ao atualizar o jogo: {e}")
             self.mensagem = "Erro ao atualizar o jogo. Tente novamente."
@@ -416,6 +446,8 @@ class ClienteJogoGUI:
             self.desenhar_credits()
         elif self.estado == "jogando":
             self.desenhar_jogo()
+        elif self.estado == "resultado":
+            self.desenhar_resultado()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

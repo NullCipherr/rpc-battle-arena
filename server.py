@@ -326,7 +326,7 @@ class GameServer:
             return True, f"Você venceu a rodada {sum(self.scores[match_id].values())}!"
         elif self.round_winner is not None and self.round_winner != player_id and self.round_winner != -1:
             return True, f"Você perdeu a rodada {sum(self.scores[match_id].values())}!"
-        elif self.round_winner is -1:
+        elif self.round_winner == -1:
             return True, f"Empate na rodada {sum(self.scores[match_id].values())}"
         elif self.round_winner is None:
             return True, f"Aguardando a jogada do oponente..."
