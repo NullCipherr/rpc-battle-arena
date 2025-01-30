@@ -290,6 +290,10 @@ class ClienteJogoGUI:
             self.estado = "menu"
     
     def fazer_jogada(self, mouse_pos):
+        if self.match_id is None:
+            print("[DEBUG] Nenhuma partida encontrada ainda.")
+            return
+        
         for opcao, rect in self.botoes_jogo.items():
             if rect.collidepoint(mouse_pos):
                 self.escolha_atual = opcao
@@ -298,12 +302,10 @@ class ClienteJogoGUI:
                     print(f"[DEBUG] Fazendo jogada: player_id={self.player_id}, match_id={self.match_id}, escolha={opcao}")
                     sucesso, message = self.server.make_move(self.player_id, self.match_id, opcao)
                     print(f"[DEBUG] Resposta do servidor: sucesso={sucesso}, message={message}")
+                    # Verifica se a partida terminou
                     if sucesso:
-                        mensagem = ""
-                        mensagem = message
-                        print(f"[DEBUG] Jogada feita com sucesso: sucesso={sucesso}, message={message}")
-                        self.mensagem = ""
                         self.atualizar_jogo(message)
+                        print(f"[DEBUG] Jogada feita com sucesso: sucesso={sucesso}, message={message}")
                     else:
                         self.mensagem = message
                         print(f"[ERROR] Erro ao fazer jogada: {message}")
@@ -312,18 +314,37 @@ class ClienteJogoGUI:
                     self.mensagem = "Erro ao fazer jogada. Tente novamente."
     
     def atualizar_jogo(self, message):
-        if "Você venceu" in message:
-            self.needs_score_update = True
+        try:
+            # Verifica o resultado da rodada
+            if "venceu a rodada" in message:
+                # Determina quem venceu a rodada
+                if str(self.player_id) in message:
+                    print(f"[DEBUG] Você venceu a rodada!")
+                    self.mensagem = "Você venceu a rodada!"
+                    self.placar_jogador += 1
+                else:
+                    print(f"[DEBUG] Você perdeu a rodada!")
+                    self.mensagem = "Você perdeu a rodada!"
+                    self.placar_oponente += 1
+            elif message == "Empate na rodada!":
+                print(f"[DEBUG] Empate na rodada!")
+                self.mensagem = "Empate na rodada!"
+
+            # Incrementa a rodada atual
             self.rodada_atual += 1
-            self.placar_jogador += 1
-        elif "Você perdeu" in message:
-            self.needs_score_update = True
-            self.placar_oponente += 1
-            self.rodada_atual += 1
-        print(f"[DEBUG] Placar atualizado: {self.placar_jogador} - {self.placar_oponente}")
+
+            # Verifica se o jogo terminou
+            if self.verificar_fim_jogo():
+                self.estado = "menu"
+                self.mensagem = "Fim do jogo!"
+                print(f"[DEBUG] Fim do jogo! Placar final: {self.placar_jogador} x {self.placar_oponente}")
+            print(f"[DEBUG] Placar atualizado: {self.placar_jogador} - {self.placar_oponente}")
+        except Exception as e:
+            print(f"[ERROR] Erro ao atualizar o jogo: {e}")
+            self.mensagem = "Erro ao atualizar o jogo. Tente novamente."
     
     def verificar_partida(self):
-        print("[DEBUG] Verificando partida...")
+        print("[DEBUG] Procurando partida...")
         try:
             sucesso, match_id = self.server.find_match(self.player_id)
             if sucesso:

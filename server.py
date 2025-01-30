@@ -17,6 +17,7 @@ class GameServer:
         self.matches = {}  # Armazena partidas em andamento
         self.choices = {}  # Armazena as escolhas dos jogadores
         self.scores = {}   # Armazena o placar das partidas
+        self.round = 0  # Número da rodada atual.
         self.max_rounds = 5  # Número máximo de rodadas
         self.waiting_list = []  # Lista de espera para partidas
         self.current_turn = {}  # Armazena o jogador atual de cada partida
@@ -56,6 +57,16 @@ class GameServer:
         self.current_turn[match_id] = player1  # Inicializa o turno com o primeiro jogador
         return True, match_id
     
+    def add_rounds(self, match_id):
+        if match_id not in self.matches:
+            return False, "Partida não encontrada"
+        if match_id not in self.scores:
+            return False, "Placar não encontrado"
+        self.round += 1 # Incrementa o número da rodada
+        if self.round > self.max_rounds:
+            return False, "Número máximo de rodadas atingido"
+        return True, f"Rodada {self.round} iniciada"
+        
     def add_score(self, player_id, match_id):
         """" Adiciona um ponto ao jogador vencedor da partida.
         Args:
@@ -132,7 +143,9 @@ class GameServer:
             
         # Verifica se o jogador já está em uma partida
         for match_id, players in self.matches.items():
+            print(f"[DEBUG] Partida {match_id}: {players}")
             if player_id in players:
+                print(f"[DEBUG] Jogador {player_id} já está em uma partida")
                 return True, match_id
                 
         # Verifica se há jogadores na lista de espera
@@ -321,11 +334,11 @@ class GameServer:
             return False, "Número insuficiente de jogadores"
         
         player1, player2 = players
-        choice1 = self.choices[players[0]]
-        choice2 = self.choices[players[1]]
+        if player1 not in self.choices or player2 not in self.choices:
+            return False, "Aguardando as escolhas dos jogadores"
         
-        if choice1 is None or choice2 is None:
-            return False, "Ambos os jogadores precisam fazer uma escolha"
+        choice1 = self.choices[player1]
+        choice2 = self.choices[player2]
         
         combinacoes_vencedoras = {
             ("pedra", "tesoura"): player1,
