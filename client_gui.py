@@ -328,18 +328,18 @@ class ClienteJogoGUI:
                     print(f"[DEBUG] Você venceu a rodada!")
                     self.mensagem = "Você venceu a rodada!"
                     self.placar_jogador += 1 # Incrementa o placar do jogador local
-                    self.rodada_atual += 1
+                    self.sinc_rodada() # Sincroniza a rodada atual com o servidor
                 else:
                     print(f"[DEBUG] Você perdeu a rodada!")
                     self.mensagem = "Você perdeu a rodada!"
                     self.placar_oponente += 1 # Incrementa o placar do oponente local
-                    self.rodada_atual += 1
+                    # self.sinc_rodada() # Sincroniza a rodada atual com o servidor
             elif message == "Empate na rodada!":
                 print(f"[DEBUG] Empate na rodada!")
                 self.mensagem = "Empate na rodada!"
-                self.rodada_atual += 1
+                # self.sinc_rodada() # Sincroniza a rodada atual com o servidor
             
-            self.sinc_placar() # Sincroniza o placar com o servidor
+            # self.sinc_placar(self.match_id) # Sincroniza o placar com o servidor
 
             # Verifica se o jogo terminou
             if self.verificar_fim_jogo():
@@ -359,8 +359,19 @@ class ClienteJogoGUI:
             self.placar_jogador = scores.get(str(self.player_id), 0)
             opponent_id = self.server.get_opponent_id(self.player_id, self.match_id)[1]
             self.placar_oponente = scores.get(str(opponent_id), 0)
+            print(f"[DEBUG] Placar sincronizado: {scores}")
+            self.sinc_rodada()
+            print(f"[DEBUG] Rodada sincronizada: {self.rodada_atual}")
         else:
             print(f"[ERROR] Erro ao sincronizar o placar: {scores}")
+        
+    def sinc_rodada(self):
+        # Sincroniza a rodada atual com o servidor
+        success, round_number = self.server.get_round(self.match_id)
+        if success:
+            self.rodada_atual = round_number
+        else:
+            print(f"[ERROR] Erro ao sincronizar a rodada: {round_number}")
     
     def verificar_partida(self):
         print("[DEBUG] Procurando partida...")

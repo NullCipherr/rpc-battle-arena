@@ -104,6 +104,23 @@ class GameServer:
             return False, "Jogador não está nesta partida"
         self.scores[match_id][player_id] += 1
         return True, f"Ponto adicionado ao jogador {player_id}"
+    
+    def add_round(self, match_id):
+        """Adiciona uma rodada à partida.
+        Args:
+            match_id (int): ID da partida.
+        Returns:
+            tuple: Um valor booleano indicando sucesso e uma mensagem informativa.
+        """
+        if match_id not in self.matches:
+            return False, "Partida não encontrada"
+        if match_id not in self.scores:
+            return False, "Placar não encontrado"
+        self.round += 1
+        if self.round > self.max_rounds:
+            return False, "Número máximo de rodadas atingido"
+        
+        return True, f"Rodada {self.round} iniciada"
 
     def add_to_waiting_list(self, player_id):
         """
@@ -303,6 +320,19 @@ class GameServer:
         max_rounds = self.max_rounds
         print(f"[DEBUG] Número máximo de rodadas: {max_rounds}")
         return scores, current_round, max_rounds
+
+    def get_round(self, match_id):
+        """Retorna o número da rodada atual de uma partida.
+        Args:
+            match_id (int): ID da partida.
+        Returns:
+            tuple: Um valor booleano indicando sucesso e o número da rodada atual.
+        """
+        if match_id not in self.matches:
+            return False, "Partida não encontrada"
+        if match_id not in self.scores:
+            return False, "Placar não encontrado"
+        return True, sum(self.scores[match_id].values()) + 1
         
     def get_current_turn(self, match_id):
         """Retorna o ID do jogador que está no turno atual.
