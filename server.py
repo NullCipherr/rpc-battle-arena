@@ -17,7 +17,8 @@ class GameServer:
         self.matches = {}  # Armazena partidas em andamento
         self.choices = {}  # Armazena as escolhas dos jogadores
         self.scores = {}   # Armazena o placar das partidas
-        self.round = 0  # Número da rodada atual.
+        self.round = 1  # Número da rodada atual.
+        self.round_winner = None  # Vencedor da rodada atual
         self.max_rounds = 5  # Número máximo de rodadas
         self.waiting_list = []  # Lista de espera para partidas
         self.current_turn = {}  # Armazena o jogador atual de cada partida
@@ -56,16 +57,6 @@ class GameServer:
         self.scores[match_id] = {player1: 0, player2: 0}
         self.current_turn[match_id] = player1  # Inicializa o turno com o primeiro jogador
         return True, match_id
-    
-    def add_rounds(self, match_id):
-        if match_id not in self.matches:
-            return False, "Partida não encontrada"
-        if match_id not in self.scores:
-            return False, "Placar não encontrado"
-        self.round += 1 # Incrementa o número da rodada
-        if self.round > self.max_rounds:
-            return False, "Número máximo de rodadas atingido"
-        return True, f"Rodada {self.round} iniciada"
     
     def remove_waiting_list(self, player_id):
         """
@@ -320,6 +311,25 @@ class GameServer:
         max_rounds = self.max_rounds
         print(f"[DEBUG] Número máximo de rodadas: {max_rounds}")
         return scores, current_round, max_rounds
+    
+    def get_message(self, player_id, match_id):
+        """Retorna uma mensagem de resultado para um jogador em uma partida.
+        Args:
+            player_id (str): ID do jogador que deseja receber a mensagem.
+            match_id (int): ID da partida em que o jogador está.
+        Returns:
+            tuple: Um valor booleano indicando sucesso e a mensagem de resultado.
+        """
+        if player_id not in self.matches[match_id]:
+            return False, "Jogador não está nesta partida"
+        if self.round_winner == player_id:
+            return True, f"Você venceu a rodada {sum(self.scores[match_id].values())}!"
+        elif self.round_winner is not None and self.round_winner != player_id and self.round_winner != -1:
+            return True, f"Você perdeu a rodada {sum(self.scores[match_id].values())}!"
+        elif self.round_winner is -1:
+            return True, f"Empate na rodada {sum(self.scores[match_id].values())}"
+        elif self.round_winner is None:
+            return True, f"Aguardando a jogada do oponente..."
 
     def get_round(self, match_id):
         """Retorna o número da rodada atual de uma partida.
@@ -332,6 +342,7 @@ class GameServer:
             return False, "Partida não encontrada"
         if match_id not in self.scores:
             return False, "Placar não encontrado"
+        print(f"[DEBUG] Rodada atual: {sum(self.scores[match_id].values()) + 1}")
         return True, sum(self.scores[match_id].values()) + 1
         
     def get_current_turn(self, match_id):
@@ -390,9 +401,11 @@ class GameServer:
         # Lógica para determinar o vencedor da rodada
         if choice1 == choice2:
             result_msg = f"Empate na rodada!"
+            self.round_winner = -1
         else:
             winner = combinacoes_vencedoras.get((choice1, choice2))
             self.scores[match_id][winner] += 1  # Atualiza o placar no servidor
+            self.round_winner = winner
             result_msg = f"{winner} venceu a rodada!"
         
         # Limpa as escolhas para a próxima rodada
@@ -401,6 +414,7 @@ class GameServer:
         
         print(f"O turno atual é de {self.current_turn[match_id]}")
         print(f"[DEBUG] Resultado da rodada: {result_msg}")
+        print(f"[DEBUG] Rodada atual: {self.round}")
         return True, result_msg
 
     def get_match_status(self, player_id, match_id):

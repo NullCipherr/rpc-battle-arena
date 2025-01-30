@@ -188,7 +188,13 @@ class ClienteJogoGUI:
             current_turn = self.server.get_current_turn(self.match_id)
             turno_texto = "Sua vez" if current_turn == self.player_id else "Vez do oponente"
             
+            if turno_texto == "Sua vez" and self.mensagem == "Não é o seu turno":
+                self.mensagem = ""
+            elif turno_texto == "Sua vez" and self.mensagem == "Aguardando a jogada do oponente...":
+                self.mensagem = ""
+            
             if current_turn == self.player_id and self.needs_score_update:
+                # self.mensagem = ""
                 self.sinc_placar() # Sincroniza o placar com o servidor
                 self.needs_score_update = False
             elif current_turn != self.player_id:
@@ -326,20 +332,26 @@ class ClienteJogoGUI:
                 # Determina quem venceu a rodada
                 if str(self.player_id) in message:
                     print(f"[DEBUG] Você venceu a rodada!")
-                    self.mensagem = "Você venceu a rodada!"
-                    self.placar_jogador += 1 # Incrementa o placar do jogador local
-                    self.sinc_rodada() # Sincroniza a rodada atual com o servidor
+                    # self.mensagem = f"Você venceu a rodada {self.rodada_atual}"
+                    # self.placar_jogador += 1 # Incrementa o placar do jogador local
+                    # self.sinc_rodada() # Sincroniza a rodada atual com o servidor
                 else:
                     print(f"[DEBUG] Você perdeu a rodada!")
-                    self.mensagem = "Você perdeu a rodada!"
-                    self.placar_oponente += 1 # Incrementa o placar do oponente local
+                    # self.mensagem = "Você perdeu a rodada!"
+                    # self.placar_oponente += 1 # Incrementa o placar do oponente local
                     # self.sinc_rodada() # Sincroniza a rodada atual com o servidor
             elif message == "Empate na rodada!":
                 print(f"[DEBUG] Empate na rodada!")
-                self.mensagem = "Empate na rodada!"
+                # self.mensagem = "Empate na rodada!"
                 # self.sinc_rodada() # Sincroniza a rodada atual com o servidor
             
-            # self.sinc_placar(self.match_id) # Sincroniza o placar com o servidor
+            print(f"[DEBUG] Sincronizando dados do jogo...")
+            self.sinc_message() # Sincroniza a mensagem com o servidor
+            print(f"[DEBUG] Mensagem sincronizada: {self.mensagem}")
+            self.sinc_placar() # Sincroniza o placar com o servidor
+            print(f"[DEBUG] Placar sincronizado: {self.placar_jogador} - {self.placar_oponente}")
+            self.sinc_rodada() # Sincroniza a rodada com o servidor
+            print(f"[DEBUG] Rodada sincronizada: {self.rodada_atual}")
 
             # Verifica se o jogo terminou
             if self.verificar_fim_jogo():
@@ -351,6 +363,13 @@ class ClienteJogoGUI:
             print(f"[ERROR] Erro ao atualizar o jogo: {e}")
             self.mensagem = "Erro ao atualizar o jogo. Tente novamente."
     
+    def sinc_message(self):
+        # Sincroniza a mensagem com o servidor
+        success, message = self.server.get_message(self.player_id, self.match_id)
+        if success:
+            self.mensagem = message
+        else:
+            print(f"[ERROR] Erro ao sincronizar a mensagem: {message}")
     
     def sinc_placar(self):
         # Sincroniza o placar com o servidor
@@ -362,6 +381,8 @@ class ClienteJogoGUI:
             print(f"[DEBUG] Placar sincronizado: {scores}")
             self.sinc_rodada()
             print(f"[DEBUG] Rodada sincronizada: {self.rodada_atual}")
+            self.sinc_message()
+            print(f"[DEBUG] Mensagem sincronizada: {self.mensagem}")
         else:
             print(f"[ERROR] Erro ao sincronizar o placar: {scores}")
         
