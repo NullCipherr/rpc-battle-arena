@@ -161,12 +161,12 @@ class GameServer:
             print("[DEBUG] Dois jogadores na lista de espera")
             player1 = self.waiting_list.pop(0)
             player2 = self.waiting_list.pop(0)
-            result, message = self.add_match(player1, player2)
+            result, match_id = self.add_match(player1, player2)
             
             if not result:
                 return False, "[DEBUG] Erro ao criar partida"
             else:
-                print(f"[DEBUG] Partida com o id {message} criado com sucesso")
+                print(f"[DEBUG] Partida com o id {match_id} criado com sucesso")
             self.players[player1]["in_game"] = True
             self.players[player2]["in_game"] = True
             print(f"[DEBUG] Jogadores na lista de espera: {len(self.waiting_list)}")
