@@ -321,18 +321,29 @@ class ClienteJogoGUI:
                 if str(self.player_id) in message:
                     print(f"[DEBUG] Você venceu a rodada!")
                     self.mensagem = "Você venceu a rodada!"
-                    self.placar_jogador += 1
+                    self.placar_jogador += 1 # Incrementa o placar do jogador local
+                    self.rodada_atual += 1
                 else:
                     print(f"[DEBUG] Você perdeu a rodada!")
                     self.mensagem = "Você perdeu a rodada!"
-                    self.placar_oponente += 1
+                    self.placar_oponente += 1 # Incrementa o placar do oponente local
+                    self.rodada_atual += 1
             elif message == "Empate na rodada!":
                 print(f"[DEBUG] Empate na rodada!")
                 self.mensagem = "Empate na rodada!"
-
-            # Incrementa a rodada atual
-            self.rodada_atual += 1
-
+                self.rodada_atual += 1
+            
+            try:
+                # Sincroniza o placar com o servidor
+                success, scores = self.server.get_score(self.match_id)
+                if success:
+                    self.placar_jogador = scores.get(str(self.player_id), 0)
+                    opponent_id = self.server.get_opponent_id(self.player_id, self.match_id)[1]
+                    self.placar_oponente = scores.get(str(opponent_id), 0)
+                else:
+                    print(f"[ERROR] Erro ao sincronizar o placar: {scores}")
+            except Exception as e:
+                print(f"[ERROR] Erro ao sincronizar o placar: {e}")
             # Verifica se o jogo terminou
             if self.verificar_fim_jogo():
                 self.estado = "menu"

@@ -66,21 +66,6 @@ class GameServer:
         if self.round > self.max_rounds:
             return False, "Número máximo de rodadas atingido"
         return True, f"Rodada {self.round} iniciada"
-        
-    def add_score(self, player_id, match_id):
-        """" Adiciona um ponto ao jogador vencedor da partida.
-        Args:
-            player_id (str): ID do jogador vencedor.
-            match_id (int): ID da partida.
-        Returns:
-            tuple: Um valor booleano indicando sucesso e uma mensagem informativa.
-        """
-        if match_id not in self.matches:
-            return False, "Partida não encontrada"
-        if player_id not in self.scores[match_id]:
-            return False, "Jogador não está nesta partida"
-        self.scores[match_id][player_id] += 1
-        return True, f"Ponto adicionado ao jogador {player_id}"
     
     def remove_waiting_list(self, player_id):
         """
@@ -104,6 +89,21 @@ class GameServer:
                 self.players[player_id]["in_game"] = False
             return True, f"Jogador {player_id} removido da lista de espera"
         return False, f"Jogador {player_id} não está na lista de espera"
+    
+    def add_score(self, player_id, match_id):
+        """" Adiciona um ponto ao jogador vencedor da partida.
+        Args:
+            player_id (str): ID do jogador vencedor.
+            match_id (int): ID da partida.
+        Returns:
+            tuple: Um valor booleano indicando sucesso e uma mensagem informativa.
+        """
+        if match_id not in self.matches:
+            return False, "Partida não encontrada"
+        if player_id not in self.scores[match_id]:
+            return False, "Jogador não está nesta partida"
+        self.scores[match_id][player_id] += 1
+        return True, f"Ponto adicionado ao jogador {player_id}"
 
     def add_to_waiting_list(self, player_id):
         """
@@ -316,6 +316,14 @@ class GameServer:
             return self.current_turn[match_id]
         return None
     
+    def get_score(self, match_id):
+        """Retorna o placar atual de uma partida."""
+        if match_id not in self.scores:
+            return False, "Partida não encontrada"
+        # Converte as chaves do dicionário para strings
+        scores = {str(player): score for player, score in self.scores[match_id].items()}
+        return True, scores
+    
     def resolve_match(self, match_id):
         """Determina o vencedor da rodada e atualiza o placar.
         Args:
@@ -354,7 +362,7 @@ class GameServer:
             result_msg = f"Empate na rodada!"
         else:
             winner = combinacoes_vencedoras.get((choice1, choice2))
-            self.scores[match_id][winner] += 1
+            self.scores[match_id][winner] += 1  # Atualiza o placar no servidor
             result_msg = f"{winner} venceu a rodada!"
         
         # Limpa as escolhas para a próxima rodada
