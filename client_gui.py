@@ -187,6 +187,13 @@ class ClienteJogoGUI:
         try:
             current_turn = self.server.get_current_turn(self.match_id)
             turno_texto = "Sua vez" if current_turn == self.player_id else "Vez do oponente"
+            
+            if current_turn == self.player_id and self.needs_score_update:
+                self.sinc_placar() # Sincroniza o placar com o servidor
+                self.needs_score_update = False
+            elif current_turn != self.player_id:
+                self.needs_score_update = True
+            
             turno_surface = self.font_media.render(turno_texto, True, self.VERDE if turno_texto == "Sua vez" else self.BRANCO)
             turno_rect = turno_surface.get_rect(center=(self.WIDTH // 2, self.HEIGHT // 2 + 50))
             self.screen.blit(turno_surface, turno_rect)
@@ -302,9 +309,8 @@ class ClienteJogoGUI:
                     print(f"[DEBUG] Fazendo jogada: player_id={self.player_id}, match_id={self.match_id}, escolha={opcao}")
                     sucesso, message = self.server.make_move(self.player_id, self.match_id, opcao)
                     print(f"[DEBUG] Resposta do servidor: sucesso={sucesso}, message={message}")
-                    # Verifica se a partida terminou
                     if sucesso:
-                        self.atualizar_jogo(message)
+                        self.atualizar_jogo(message) # Atualiza o jogo
                         print(f"[DEBUG] Jogada feita com sucesso: sucesso={sucesso}, message={message}")
                     else:
                         self.mensagem = message
@@ -333,17 +339,8 @@ class ClienteJogoGUI:
                 self.mensagem = "Empate na rodada!"
                 self.rodada_atual += 1
             
-            try:
-                # Sincroniza o placar com o servidor
-                success, scores = self.server.get_score(self.match_id)
-                if success:
-                    self.placar_jogador = scores.get(str(self.player_id), 0)
-                    opponent_id = self.server.get_opponent_id(self.player_id, self.match_id)[1]
-                    self.placar_oponente = scores.get(str(opponent_id), 0)
-                else:
-                    print(f"[ERROR] Erro ao sincronizar o placar: {scores}")
-            except Exception as e:
-                print(f"[ERROR] Erro ao sincronizar o placar: {e}")
+            self.sinc_placar() # Sincroniza o placar com o servidor
+
             # Verifica se o jogo terminou
             if self.verificar_fim_jogo():
                 self.estado = "menu"
@@ -353,6 +350,17 @@ class ClienteJogoGUI:
         except Exception as e:
             print(f"[ERROR] Erro ao atualizar o jogo: {e}")
             self.mensagem = "Erro ao atualizar o jogo. Tente novamente."
+    
+    
+    def sinc_placar(self):
+        # Sincroniza o placar com o servidor
+        success, scores = self.server.get_score(self.match_id)
+        if success:
+            self.placar_jogador = scores.get(str(self.player_id), 0)
+            opponent_id = self.server.get_opponent_id(self.player_id, self.match_id)[1]
+            self.placar_oponente = scores.get(str(opponent_id), 0)
+        else:
+            print(f"[ERROR] Erro ao sincronizar o placar: {scores}")
     
     def verificar_partida(self):
         print("[DEBUG] Procurando partida...")

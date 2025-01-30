@@ -369,8 +369,7 @@ class GameServer:
         del self.choices[player1]
         del self.choices[player2]
         
-        # Alterna a vez para o próximo jogador
-        self.current_turn[match_id] = players[1] if self.current_turn[match_id] == players[0] else players[0]
+        print(f"O turno atual é de {self.current_turn[match_id]}")
         print(f"[DEBUG] Resultado da rodada: {result_msg}")
         return True, result_msg
 
