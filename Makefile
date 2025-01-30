@@ -100,7 +100,7 @@ $(LOG_DIR):
 	$(call print_status,"Logs serão salvos em: $(LOG_DIR)"," 📝 ")
 	$(call print_status,"Utilize make help para exibir ajuda"," 📄 ")
 
-# Iniciar servidor com logs > $(LOG_DIR)/server_$(DATE).log 2>&1
+# Iniciar servidor com logs 
 server: $(LOG_DIR)
 	$(call print_status, "Iniciando servidor na porta $(SERVER_PORT)"," 🚀 ")
 	$(call print_status,"Salvando logs em: $(LOG_DIR)/server_$(DATE).log"," 📝 ")
@@ -110,7 +110,7 @@ server: $(LOG_DIR)
 	fi 
 	@echo "🚀 Iniciando servidor..."; \
 	touch $(LOG_DIR)/server_$(DATE).log; \
-	$(PYTHON) server.py --ip $(SERVER_IP) --porta $(SERVER_PORT)
+	$(PYTHON) server.py --ip $(SERVER_IP) --porta $(SERVER_PORT) > $(LOG_DIR)/server_$(DATE).log 2>&1
 
 # Iniciar cliente com logs  2>&1 | tee $(LOG_DIR)/client_$(DATE).log
 client: $(LOG_DIR)
